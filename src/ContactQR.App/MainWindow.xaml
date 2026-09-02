@@ -303,12 +303,20 @@
                         the pointer nor the tab order can reach it without crossing the number
                         the application exists to compute.
                     -->
-                    <Button Grid.Row="2"
-                            Style="{StaticResource PrimaryButton}"
-                            Command="{Binding ExportPngCommand}"
-                            IsEnabled="{Binding CanExport}"
-                            Content="Export PNG…"
-                            Margin="0,16,0,0" />
+                    <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                        <Button Style="{StaticResource GhostButton}"
+                                Command="{Binding PrintTestSheetCommand}"
+                                IsEnabled="{Binding CanExport}"
+                                ToolTip="Saves one page carrying this code at several sizes. Print it at 100%, scan each with a phone, and you will know which sizes actually work before committing a press run."
+                                Content="Print test sheet…"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,8" />
+
+                        <Button Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ExportPngCommand}"
+                                IsEnabled="{Binding CanExport}"
+                                Content="Export PNG…" />
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>

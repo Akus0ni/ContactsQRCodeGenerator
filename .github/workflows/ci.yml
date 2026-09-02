@@ -1,0 +1,84 @@
+name: CI
+
+# Runs on every pull request into main, and again on main after a merge.
+#
+# The pull-request run is the gate: main is protected so changes arrive only through a PR, and
+# this workflow is what a reviewer is trusting when they merge. The push run rebuilds the
+# installer from the merged state so there is always a downloadable MSI matching main.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      # Warnings are errors repo-wide, and BannedApiAnalyzers fails the build on any use of
+      # System.Net, Dns, WebClient or EventSource. The offline guarantee (PRD FR-8.1, FR-8.3) is
+      # therefore enforced by this step rather than by a reviewer remembering to look.
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release --logger "trx;LogFileName=results.trx" --results-directory artifacts/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: artifacts/test-results
+          retention-days: 14
+
+  installer:
+    name: installer
+    runs-on: windows-latest
+    needs: build-and-test
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The installer harvests whatever is in artifacts/publish, so the publish has to happen
+      # before the WiX project builds. DebugType=none keeps symbol files out of the payload.
+      - name: Publish application
+        run: >
+          dotnet publish src/ContactQR.App
+          -c Release -r win-x64 --self-contained false
+          -p:DebugType=none
+          -o artifacts/publish
+
+      - name: Build MSI
+        run: dotnet build installer/ContactQR.Installer.wixproj -c Release
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: ContactQR-msi
+          path: installer/bin/Release/ContactQR.msi
+          retention-days: 90
+          if-no-files-found: error

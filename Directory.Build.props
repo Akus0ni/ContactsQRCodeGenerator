@@ -10,6 +10,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <InvariantGlobalization>true</InvariantGlobalization>
     <Deterministic>true</Deterministic>
+
+    <!-- Single source of truth for the assembly and installer version. -->
+    <Version>0.1.0</Version>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
