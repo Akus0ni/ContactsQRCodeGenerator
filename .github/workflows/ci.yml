@@ -113,11 +113,72 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  # Whether this merge is a release is decided here, in its own job, so that the answer can gate
+  # the release job itself rather than every step inside it. Most merges are not releases: they
+  # should cost nothing and say nothing, not start a Windows runner, install the .NET SDK and
+  # then no-op through four conditional steps into a green tick that published nothing.
+  #
+  # Reading one XML element and asking the API about a tag needs neither Windows nor .NET, so
+  # this runs on the cheapest runner available.
+  version-check:
+    name: version-check
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      unreleased: ${{ steps.existing.outputs.unreleased }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      # Directory.Build.props is the single source of truth for the version, so the release tag
+      # cannot drift from what the MSI reports in Programs and Features.
+      - name: Read version
+        id: version
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)
+
+          if [ -z "$version" ]; then
+            echo "No <Version> found in Directory.Build.props" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Version $version"
+
+      # A merge that does not bump the version is normal — most are. Publishing over an existing
+      # release would replace an artefact someone may already have downloaded, so an existing
+      # tag means skip, not fail.
+      #
+      # `gh release view` exits 1 when the release is absent. Testing it inside `if` consumes
+      # that exit code, which is what keeps the "not released yet" path from failing the step.
+      - name: Check whether this version is already released
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "unreleased=false" >> "$GITHUB_OUTPUT"
+            echo "Release $tag already exists. Nothing to do — bump <Version> to cut a new one."
+          else
+            echo "unreleased=true" >> "$GITHUB_OUTPUT"
+            echo "No release for $tag yet. Building and publishing one."
+          fi
+
+  # Skipped outright when the tag already exists, so a merge that changes no version shows this
+  # job greyed out and reads as what it is: not a release.
   release:
     name: release
     runs-on: windows-latest
-    needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-and-test, version-check]
+    if: needs.version-check.outputs.unreleased == 'true'
 
     permissions:
       contents: write
@@ -131,51 +192,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # Directory.Build.props is the single source of truth for the version, so the release tag
-      # cannot drift from what the MSI reports in Programs and Features.
-      - name: Read version
-        id: version
-        shell: pwsh
-        run: |
-          [xml]$props = Get-Content Directory.Build.props
-          $version = $props.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
-          if (-not $version) { throw "No <Version> found in Directory.Build.props" }
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "tag=v$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Version $version"
-
-      # A merge that does not bump the version is normal — most are. Publishing over an existing
-      # release would replace an artefact someone may already have downloaded, so an existing
-      # tag means skip, not fail.
-      #
-      # `gh release view` exits 1 when the release does not exist, and a pwsh step ends with an
-      # implicit `exit $LASTEXITCODE`. Left alone that fails the step on exactly the path that
-      # should proceed, so the code is captured and then cleared deliberately.
-      - name: Check whether this version is already released
-        id: existing
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = "${{ steps.version.outputs.tag }}"
-          gh release view $tag 1>$null 2>$null
-          $exists = ($LASTEXITCODE -eq 0)
-          $global:LASTEXITCODE = 0
-
-          if ($exists) {
-            "exists=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Release $tag already exists. Skipping — bump <Version> to cut a new one."
-          } else {
-            "exists=false" >> $env:GITHUB_OUTPUT
-            Write-Host "No release for $tag yet. Building and publishing one."
-          }
-
-          exit 0
-
       # The installer harvests whatever is in artifacts/publish, so the publish must precede the
       # WiX build. DebugType=none keeps symbol files out of the shipped payload.
       - name: Publish application
-        if: steps.existing.outputs.exists == 'false'
         run: >
           dotnet publish src/ContactQR.App
           -c Release -r win-x64 --self-contained false
@@ -183,11 +202,9 @@ jobs:
           -o artifacts/publish
 
       - name: Build MSI
-        if: steps.existing.outputs.exists == 'false'
         run: dotnet build installer/ContactQR.Installer.wixproj -c Release
 
       - name: Upload MSI artefact
-        if: steps.existing.outputs.exists == 'false'
         uses: actions/upload-artifact@v7
         with:
           name: ContactQR-msi
@@ -196,14 +213,13 @@ jobs:
           if-no-files-found: error
 
       - name: Create release
-        if: steps.existing.outputs.exists == 'false'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $tag = "${{ steps.version.outputs.tag }}"
-          $version = "${{ steps.version.outputs.version }}"
+          $tag = "${{ needs.version-check.outputs.tag }}"
+          $version = "${{ needs.version-check.outputs.version }}"
 
           # A literal here-string, so the backticks that make markdown inline code are not read
           # as PowerShell escape characters. The one value that must interpolate is appended
