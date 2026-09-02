@@ -84,6 +84,10 @@ jobs:
       # A merge that does not bump the version is normal — most are. Publishing over an existing
       # release would replace an artefact someone may already have downloaded, so an existing
       # tag means skip, not fail.
+      #
+      # `gh release view` exits 1 when the release does not exist, and a pwsh step ends with an
+      # implicit `exit $LASTEXITCODE`. Left alone that fails the step on exactly the path that
+      # should proceed, so the code is captured and then cleared deliberately.
       - name: Check whether this version is already released
         id: existing
         shell: pwsh
@@ -91,13 +95,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = "${{ steps.version.outputs.tag }}"
-          gh release view $tag 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) {
+          gh release view $tag 1>$null 2>$null
+          $exists = ($LASTEXITCODE -eq 0)
+          $global:LASTEXITCODE = 0
+
+          if ($exists) {
             "exists=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Release $tag already exists — skipping. Bump <Version> to cut a new one."
+            Write-Host "Release $tag already exists. Skipping — bump <Version> to cut a new one."
           } else {
             "exists=false" >> $env:GITHUB_OUTPUT
+            Write-Host "No release for $tag yet. Building and publishing one."
           }
+
+          exit 0
 
       # The installer harvests whatever is in artifacts/publish, so the publish must precede the
       # WiX build. DebugType=none keeps symbol files out of the shipped payload.
@@ -128,23 +138,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $tag = "${{ steps.version.outputs.tag }}"
           $version = "${{ steps.version.outputs.version }}"
-          $notes = @"
+
+          # A literal here-string, so the backticks that make markdown inline code are not read
+          # as PowerShell escape characters. The one value that must interpolate is appended
+          # afterwards rather than making the whole block interpolating.
+          $notes = @'
           Offline vCard QR code generator for printed business cards.
 
-          **Download:** ``ContactQR.msi`` below. Install, upgrade over an existing copy, or
-          uninstall from Programs and Features.
+          **Download** the `ContactQR.msi` below. It installs, upgrades an existing copy in
+          place, and uninstalls from Programs and Features.
 
-          Your client library lives at ``%APPDATA%\ContactQR\library.db`` and is **not** removed
-          when you uninstall.
+          Your client library lives at `%APPDATA%\ContactQR\library.db` and is **not** removed
+          when you uninstall — those are your own client records.
 
-          This build is unsigned, so SmartScreen will warn on first run — choose More info, then
-          Run anyway. Signing is pending a code-signing certificate.
+          This build is unsigned, so SmartScreen will warn on first run: choose **More info**,
+          then **Run anyway**. Signing is pending a code-signing certificate.
+          '@
 
-          Built from ``$env:GITHUB_SHA``.
-          "@
+          $notes += "`n`nBuilt from $env:GITHUB_SHA."
+          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
+
           gh release create $tag `
             "installer/bin/Release/ContactQR.msi" `
             --title "ContactQR $version" `
-            --notes $notes
+            --notes-file release-notes.md
