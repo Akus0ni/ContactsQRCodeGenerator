@@ -1,0 +1,8 @@
+# Every pull request requests a review from the owner automatically, and — with
+# require_code_owner_reviews enabled on main — cannot be merged until that review approves it.
+#
+# This is what makes the repository owner a required reviewer rather than a customary one.
+# Branch protection alone cannot express "this specific person must approve"; only a code owner
+# entry can.
+
+* @Akus0ni
