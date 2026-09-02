@@ -1,0 +1,99 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Design tokens from DESIGN.md section 3. Dark theme.
+
+        Every grey is exactly neutral (R = G = B). This is a hard rule, not a rounding
+        convention: the operator is judging a client's brand colours on our canvas, and a
+        tinted interface shifts his perception of them.
+    -->
+
+    <!-- Surfaces -->
+    <Color x:Key="SurfaceWindowColor">#FF1F1F1F</Color>
+    <Color x:Key="SurfacePanelColor">#FF292929</Color>
+    <Color x:Key="SurfaceRaisedColor">#FF333333</Color>
+    <Color x:Key="SurfaceHoverColor">#FF3D3D3D</Color>
+    <Color x:Key="SurfaceSelectedColor">#FF454545</Color>
+
+    <SolidColorBrush x:Key="SurfaceWindow" Color="{StaticResource SurfaceWindowColor}" />
+    <SolidColorBrush x:Key="SurfacePanel" Color="{StaticResource SurfacePanelColor}" />
+    <SolidColorBrush x:Key="SurfaceRaised" Color="{StaticResource SurfaceRaisedColor}" />
+    <SolidColorBrush x:Key="SurfaceHover" Color="{StaticResource SurfaceHoverColor}" />
+    <SolidColorBrush x:Key="SurfaceSelected" Color="{StaticResource SurfaceSelectedColor}" />
+
+    <!-- Borders -->
+    <SolidColorBrush x:Key="BorderHairline" Color="#FF3D3D3D" />
+    <SolidColorBrush x:Key="BorderDefault" Color="#FF4F4F4F" />
+    <SolidColorBrush x:Key="BorderStrong" Color="#FF6B6B6B" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="TextPrimary" Color="#FFF2F2F2" />
+    <SolidColorBrush x:Key="TextSecondary" Color="#FFB0B0B0" />
+    <SolidColorBrush x:Key="TextTertiary" Color="#FF949494" />
+    <SolidColorBrush x:Key="TextDisabled" Color="#FF6B6B6B" />
+
+    <!--
+        The preview canvas is a fixed neutral mid-grey in both themes and does not follow the
+        theme. A dark canvas flatters a light-background code and a white one flatters a dark
+        code; the surround has to be a constant reference field or the same QR looks
+        differently trustworthy depending on the theme.
+    -->
+    <SolidColorBrush x:Key="CanvasField" Color="#FF8C8C8C" />
+    <SolidColorBrush x:Key="CanvasShadowLine" Color="#FF7A7A7A" />
+
+    <!--
+        Process cyan. Reserved for focus, selection and the primary action; it never carries
+        status. Cyan is the colour of non-printing guides in every layout application the
+        operator uses, and our interface is a non-printing layer over the client's artwork.
+    -->
+    <SolidColorBrush x:Key="AccentBase" Color="#FF00B8D4" />
+    <SolidColorBrush x:Key="AccentHover" Color="#FF22CBE4" />
+    <SolidColorBrush x:Key="AccentFocus" Color="#FF5CDBEE" />
+    <SolidColorBrush x:Key="AccentSubtle" Color="#FF0E3A42" />
+    <SolidColorBrush x:Key="AccentOnFill" Color="#FF04222A" />
+
+    <!-- Verdict system. Always rendered as glyph + word + colour, never colour alone. -->
+    <SolidColorBrush x:Key="VerdictSafeText" Color="#FF3FBF6F" />
+    <SolidColorBrush x:Key="VerdictSafeFill" Color="#FF2E9E58" />
+    <SolidColorBrush x:Key="VerdictSafeWash" Color="#FF16311F" />
+
+    <SolidColorBrush x:Key="VerdictMarginalText" Color="#FFF5B544" />
+    <SolidColorBrush x:Key="VerdictMarginalFill" Color="#FFD99A22" />
+    <SolidColorBrush x:Key="VerdictMarginalWash" Color="#FF332711" />
+
+    <SolidColorBrush x:Key="VerdictFailText" Color="#FFFF6B6B" />
+    <SolidColorBrush x:Key="VerdictFailFill" Color="#FFD93036" />
+    <SolidColorBrush x:Key="VerdictFailWash" Color="#FF3A1A1B" />
+
+    <SolidColorBrush x:Key="VerdictOverride" Color="#FFC77DFF" />
+
+    <!--
+        Typography. Bahnschrift is Microsoft's variable DIN 1451 — the lettering standard of
+        rulers, gauges and technical drawings, and the typeface of measurements you are meant
+        to trust. It ships with Windows, so it satisfies the ban on fetching anything over the
+        network with no bundling and no licence question.
+    -->
+    <FontFamily x:Key="DisplayFont">Bahnschrift, Segoe UI</FontFamily>
+    <FontFamily x:Key="BodyFont">Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Consolas, Courier New</FontFamily>
+
+    <system:Double x:Key="TypeHero" xmlns:system="clr-namespace:System;assembly=System.Runtime">40</system:Double>
+    <system:Double x:Key="TypeVerdict" xmlns:system="clr-namespace:System;assembly=System.Runtime">22</system:Double>
+    <system:Double x:Key="TypeTitle" xmlns:system="clr-namespace:System;assembly=System.Runtime">20</system:Double>
+    <system:Double x:Key="TypePanel" xmlns:system="clr-namespace:System;assembly=System.Runtime">15</system:Double>
+    <system:Double x:Key="TypeBody" xmlns:system="clr-namespace:System;assembly=System.Runtime">13</system:Double>
+    <system:Double x:Key="TypeLabel" xmlns:system="clr-namespace:System;assembly=System.Runtime">12</system:Double>
+    <system:Double x:Key="TypeEyebrow" xmlns:system="clr-namespace:System;assembly=System.Runtime">11</system:Double>
+
+    <!-- Spacing. 4px base, chosen because it yields integers at 125/150/175% DPI scaling. -->
+    <Thickness x:Key="PanelPadding">16</Thickness>
+    <Thickness x:Key="FieldGap">0,0,0,12</Thickness>
+    <Thickness x:Key="SectionGap">0,0,0,24</Thickness>
+
+    <!-- Radius. Nothing that displays or bounds the QR is ever rounded. -->
+    <CornerRadius x:Key="RadiusNone">0</CornerRadius>
+    <CornerRadius x:Key="RadiusControl">2</CornerRadius>
+    <CornerRadius x:Key="RadiusPanel">4</CornerRadius>
+
+</ResourceDictionary>

@@ -11,6 +11,7 @@
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="FluentAssertions" Version="7.2.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.151.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
@@ -20,8 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\ContactQR.Rendering\ContactQR.Rendering.csproj" />
     <ProjectReference Include="..\..\src\ContactQR.Core\ContactQR.Core.csproj" />
-    <ProjectReference Include="..\..\src\ContactQR.Storage\ContactQR.Storage.csproj" />
   </ItemGroup>
 
 </Project>

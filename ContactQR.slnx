@@ -1,8 +1,12 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/ContactQR.App/ContactQR.App.csproj" />
     <Project Path="src/ContactQR.Core/ContactQR.Core.csproj" />
+    <Project Path="src/ContactQR.Rendering/ContactQR.Rendering.csproj" />
+    <Project Path="src/ContactQR.Storage/ContactQR.Storage.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ContactQR.Core.Tests/ContactQR.Core.Tests.csproj" />
+    <Project Path="tests/ContactQR.Rendering.Tests/ContactQR.Rendering.Tests.csproj" />
   </Folder>
 </Solution>

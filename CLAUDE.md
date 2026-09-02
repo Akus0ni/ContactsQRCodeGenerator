@@ -33,18 +33,23 @@ a defect, however convenient it is.
 | `PRD.md` | Product requirements. The specification. |
 | `DESIGN.md` | Design brief — principles, tokens, screens, components, accessibility. |
 | `src/ContactQR.Core/` | Pure domain logic. No UI, no I/O, no network. See its `CLAUDE.md`. |
+| `src/ContactQR.Rendering/` | QR encoding, drawing, PNG export, decode-back self-test. |
+| `src/ContactQR.Storage/` | The client library. One SQLite file. |
+| `src/ContactQR.App/` | The WPF application. Presentation only. |
 | `tests/ContactQR.Core.Tests/` | xUnit + FluentAssertions. See its `CLAUDE.md`. |
+| `tests/ContactQR.Rendering.Tests/` | Rendering, PNG metadata, capacity cross-verification. |
 | `BannedSymbols.txt` | The compile-time offline guarantee. |
 | `Directory.Build.props` | Nullable, warnings-as-errors, analyzers, the RS0030 escalation. |
 
-`src/ContactQR.App/` (WPF) does not exist yet. When it does, the Core library must stay free
-of any reference to it.
+`ContactQR.Core` targets `net10.0`, not `net10.0-windows`, so a UI dependency cannot be added
+without the target framework change making it obvious in review. Keep it that way.
 
 ## Build and test
 
 ```bash
 dotnet build          # must be warning-free; warnings are errors
-dotnet test           # 85 tests, all must pass
+dotnet test           # 217 tests, all must pass
+dotnet run --project src/ContactQR.App    # launch the Editor
 ```
 
 .NET 10 SDK. The solution file is `ContactQR.slnx`, the newer XML format — `dotnet build`
@@ -66,8 +71,10 @@ finds it automatically, but `-p ContactQR.sln` will not work.
   are very hard to diagnose after cards are printed (FR-2.3).
 - **Count UTF-8 bytes, never characters.** A Devanagari or CJK name costs roughly three bytes
   per character and will push a code over budget invisibly (FR-2.5, EC-2).
-- **The capacity table in `QrCapacityTable` is not yet cross-verified** against a QR encoder.
-  FR-3.3 makes the encoder the authority. Verify before it gates a real export.
+- **The capacity table is now cross-verified** against QRCoder across all 40 versions and 4
+  correction levels, in `QrCapacityCrossVerificationTests`. Do not delete that test.
+- **`InvariantGlobalization` must stay `false` in the WPF app.** WPF cannot bind under
+  invariant globalization; it throws before the first window appears.
 - **The 0.40 / 0.30 mm-per-module thresholds are an uncalibrated hypothesis**, not measured
   fact. PRD M1b requires calibration against the physical device matrix.
 - **FluentAssertions is pinned to 7.2.0** deliberately. Version 8 and later require a paid
