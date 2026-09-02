@@ -1,0 +1,26 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- The application is not a library; its members are not public API to document. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!--
+      WPF cannot run under invariant globalization. Its binding engine resolves a specific
+      culture for every value conversion, and in invariant mode that throws
+      "Cannot find non-neutral culture related to 'en-us'" before the first window appears.
+      The root sets InvariantGlobalization for deterministic library behaviour; the UI has to
+      opt out of it. Formatting that must not vary by machine locale — the module size
+      readout, byte counts — states CultureInfo.InvariantCulture explicitly instead.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!--
+      CA1515 wants application types sealed as internal. WPF requires public partial classes
+      for XAML code-behind, so the rule fights the framework rather than improving the code.
+    -->
+    <NoWarn>$(NoWarn);CA1515</NoWarn>
+  </PropertyGroup>
+
+</Project>

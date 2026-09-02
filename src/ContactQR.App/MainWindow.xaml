@@ -1,0 +1,297 @@
+<Window x:Class="ContactQR.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:ContactQR.App.ViewModels"
+        xmlns:conv="clr-namespace:ContactQR.App.Converters"
+        Title="ContactQR"
+        Height="820" Width="1400"
+        MinHeight="720" MinWidth="1100"
+        Background="{StaticResource SurfaceWindow}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Ideal">
+
+    <Window.DataContext>
+        <vm:EditorViewModel />
+    </Window.DataContext>
+
+    <Window.Resources>
+        <conv:BrushKeyConverter x:Key="BrushKey" />
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="28" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{StaticResource SurfacePanel}"
+                BorderBrush="{StaticResource BorderHairline}" BorderThickness="0,0,0,1">
+            <Grid Margin="16,0">
+                <TextBlock VerticalAlignment="Center"
+                           FontFamily="{StaticResource DisplayFont}"
+                           FontSize="{StaticResource TypeTitle}"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimary}"
+                           Text="ContactQR" />
+                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                           Style="{StaticResource MonoText}"
+                           Text="vCard 3.0 · offline" />
+            </Grid>
+        </Border>
+
+        <!-- Three panes -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="*" MinWidth="480" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Form pane -->
+            <Border Grid.Column="0" Background="{StaticResource SurfacePanel}"
+                    BorderBrush="{StaticResource BorderHairline}" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowText}" Text="IDENTITY" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Given name · required" />
+                        <TextBox Text="{Binding GivenName, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as the contact's first name, and used for the name shown at the top of the contact card. Encoded as N, FN."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Family name" />
+                        <TextBox Text="{Binding FamilyName, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as the contact's last name, and used for sorting in the phone's contact list. Leave empty for a client who uses one name. Encoded as N, FN."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Company" />
+                        <TextBox Text="{Binding Company, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as the company. Appears under the name on both phones, and is what people search when they forget the person's name. Encoded as ORG."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Job title" />
+                        <TextBox Text="{Binding JobTitle, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as the job title, shown beneath the name alongside the company. Placement varies between Android contact apps. Encoded as TITLE."
+                                 Margin="{StaticResource SectionGap}" />
+
+                        <TextBlock Style="{StaticResource EyebrowText}" Text="REACH" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Mobile · required" />
+                        <TextBox Text="{Binding Mobile, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as a mobile number and can be called or texted straight from the contact card. Include the country code — a number saved without one fails when the caller is abroad. Encoded as TEL;TYPE=CELL."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Work phone" />
+                        <TextBox Text="{Binding WorkPhone, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as a work number, labelled work on the contact card. Encoded as TEL;TYPE=WORK,VOICE."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Work email" />
+                        <TextBox Text="{Binding WorkEmail, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as a work email address and can be tapped to start a message. Encoded as EMAIL;TYPE=INTERNET,WORK."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Website" />
+                        <TextBox Text="{Binding Website, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as a website and can be tapped to open in the phone's browser. A LinkedIn or Instagram address does not become a linked profile — both phones treat it as a plain web link. Encoded as URL."
+                                 Margin="{StaticResource SectionGap}" />
+
+                        <TextBlock Style="{StaticResource EyebrowText}" Text="ADDRESS" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Street" />
+                        <TextBox Text="{Binding Street, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as the first line of a work address, which can be tapped to open in maps. The full address adds roughly 80 bytes, which is often what pushes a card-sized code past scanning reliably. Encoded as ADR."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="City" />
+                        <TextBox Text="{Binding City, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as the city of the work address. Encoded as ADR."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Postal code" />
+                        <TextBox Text="{Binding PostalCode, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved as the postal code of the work address. Encoded as ADR."
+                                 Margin="{StaticResource SectionGap}" />
+
+                        <TextBlock Style="{StaticResource EyebrowText}" Text="EXTRA" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Note or tagline" />
+                        <TextBox Text="{Binding Note, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Saved into the contact's notes, visible only after opening the contact. The costliest field per character and the least visible to the person who scanned — usually the first thing to remove when a code is over budget. Encoded as NOTE."
+                                 AcceptsReturn="True" MinHeight="60" TextWrapping="Wrap"
+                                 Margin="{StaticResource FieldGap}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Canvas -->
+            <Grid Grid.Column="1" Background="{StaticResource CanvasField}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <!-- Locked state: names the missing field rather than showing empty grey. -->
+                    <TextBlock Text="{Binding VerdictWord}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontFamily="{StaticResource BodyFont}"
+                               FontSize="{StaticResource TypePanel}"
+                               Foreground="#FF5C5C5C">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Preview}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <Image Source="{Binding Preview}"
+                           Margin="48"
+                           RenderOptions.BitmapScalingMode="NearestNeighbor"
+                           Stretch="Uniform"
+                           StretchDirection="DownOnly" />
+                </Grid>
+
+                <!--
+                    The control strip: the byte budget drawn as the ink-density bar printed on
+                    the edge of a press sheet. Square-cornered and flush, because a measuring
+                    device does not have soft corners.
+                -->
+                <Border Grid.Row="1" Height="28" Background="#FF7A7A7A" Padding="12,0">
+                    <Grid VerticalAlignment="Center">
+                        <ProgressBar Height="10"
+                                     Minimum="0" Maximum="1"
+                                     Value="{Binding BudgetFraction, Mode=OneWay}"
+                                     Background="#FF6B6B6B"
+                                     Foreground="{StaticResource TextPrimary}"
+                                     BorderThickness="0" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Scannability rail -->
+            <Border Grid.Column="2" Background="{StaticResource SurfacePanel}"
+                    BorderBrush="{StaticResource BorderHairline}" BorderThickness="1,0,0,0">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Style="{StaticResource EyebrowText}" Text="SCANNABILITY" />
+
+                        <!-- The hero readout. P1: never collapses, never animates. -->
+                        <TextBlock Style="{StaticResource HeroReadout}"
+                                   Text="{Binding ModuleSizeReadout}"
+                                   Foreground="{Binding VerdictBrushKey, Converter={StaticResource BrushKey}}" />
+                        <TextBlock Style="{StaticResource EyebrowText}" Text="MM PER MODULE" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,16">
+                            <TextBlock Style="{StaticResource VerdictText}"
+                                       Text="{Binding VerdictGlyph}"
+                                       Foreground="{Binding VerdictBrushKey, Converter={StaticResource BrushKey}}"
+                                       Margin="0,0,8,0" />
+                            <TextBlock Style="{StaticResource VerdictText}"
+                                       Text="{Binding VerdictWord}"
+                                       Foreground="{Binding VerdictBrushKey, Converter={StaticResource BrushKey}}" />
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource BodyText}"
+                                   Text="{Binding StatusMessage}"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,16" />
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Payload" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Correction" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Version" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Min safe" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                <TextBlock Style="{StaticResource FieldLabel}" Foreground="{StaticResource TextPrimary}" Text="{Binding PayloadReadout}" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Foreground="{StaticResource TextPrimary}" Text="{Binding EccReadout}" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Foreground="{StaticResource TextPrimary}" Text="{Binding VersionReadout}" />
+                                <TextBlock Style="{StaticResource FieldLabel}" Foreground="{StaticResource TextPrimary}" Text="{Binding MinimumSafeWidthReadout}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Separator Background="{StaticResource BorderHairline}" Margin="0,8,0,16" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Print width (mm)" />
+                        <TextBox Text="{Binding PrintWidthMillimetres, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="The printed width of the whole code including its quiet zone. This is the primary control — pixel dimensions follow from it."
+                                 Margin="{StaticResource FieldGap}" />
+
+                        <CheckBox IsChecked="{Binding HasLogo}"
+                                  Foreground="{StaticResource TextSecondary}"
+                                  FontFamily="{StaticResource BodyFont}"
+                                  FontSize="{StaticResource TypeBody}"
+                                  ToolTip="A centre logo forces error correction to level H, which roughly halves the data the code can carry. It is the single most expensive choice on the card."
+                                  Content="Reserve space for a centre logo"
+                                  Margin="0,0,0,16" />
+                    </StackPanel>
+
+                    <!-- Remedies. Empty when the verdict is Safe — the reward is an absence of interface. -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Remedies}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource SurfaceRaised}"
+                                            CornerRadius="{StaticResource RadiusControl}"
+                                            Padding="10,8" Margin="0,0,0,6">
+                                        <TextBlock Text="{Binding}"
+                                                   Style="{StaticResource BodyText}"
+                                                   Foreground="{StaticResource TextSecondary}"
+                                                   TextWrapping="Wrap" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!--
+                        The primary action sits below the verdict and the remedies, so neither
+                        the pointer nor the tab order can reach it without crossing the number
+                        the application exists to compute.
+                    -->
+                    <Button Grid.Row="2"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding ExportPngCommand}"
+                            IsEnabled="{Binding CanExport}"
+                            Content="Export PNG…"
+                            Margin="0,16,0,0" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Status bar. Offline reads as confirmation, never as a warning. -->
+        <Border Grid.Row="2" Background="{StaticResource SurfacePanel}"
+                BorderBrush="{StaticResource BorderHairline}" BorderThickness="0,1,0,0">
+            <Grid Margin="16,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource VerdictSafeText}" Margin="0,0,8,0" />
+                    <TextBlock Style="{StaticResource MonoText}" Text="Offline · no network access" />
+                </StackPanel>
+                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                           Style="{StaticResource MonoText}"
+                           Text="{Binding PayloadReadout}" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
