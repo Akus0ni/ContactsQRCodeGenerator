@@ -41,6 +41,7 @@ a defect, however convenient it is.
 | `installer/` | WiX 6 MSI — install, upgrade, uninstall. See its `CLAUDE.md`. |
 | `.github/workflows/ci.yml` | Build and test on every PR; MSI and release on merge to main. |
 | `BannedSymbols.txt` | The compile-time offline guarantee. |
+| `%APPDATA%\ContactQR\` | Runtime data on the operator's machine: `library.db` and `logs\`. |
 | `Directory.Build.props` | Nullable, warnings-as-errors, analyzers, the RS0030 escalation. |
 
 `ContactQR.Core` targets `net10.0`, not `net10.0-windows`, so a UI dependency cannot be added
@@ -104,5 +105,14 @@ it gates.
   invariant globalization; it throws before the first window appears.
 - **The 0.40 / 0.30 mm-per-module thresholds are an uncalibrated hypothesis**, not measured
   fact. PRD M1b requires calibration against the physical device matrix.
+- **A green test suite does not mean the application starts.** All 244 tests passed while 1.0.1
+  shipped an MSI that crashed before its first window: a XAML resource was missing from the
+  packaged output, a defect that only exists once the app is published and run from somewhere
+  other than its own source folder. `dotnet run` hid it, because it sets the working directory
+  to the project folder. The `Smoke test that the published application starts` step in CI is
+  the only thing that covers this; do not remove it.
+- **`<ApplicationIcon>` does not make the icon file available to WPF.** It stamps the Win32
+  icon into the executable and nothing else. An icon the UI also references at runtime must
+  additionally be a `<Resource>`. This is what broke 1.0.1.
 - **FluentAssertions is pinned to 7.2.0** deliberately. Version 8 and later require a paid
   licence for commercial use. Do not upgrade without a licensing decision.

@@ -42,6 +42,60 @@ jobs:
       - name: Test
         run: dotnet test --no-build -c Release --logger "trx;LogFileName=results.trx" --results-directory artifacts/test-results
 
+      # Every unit test passed while 1.0.1 shipped an application that could not open a window.
+      # Nothing under tests/ can catch that: the failure was a XAML resource missing from the
+      # packaged output, so it only exists once the app is published and started from somewhere
+      # other than its own source folder. This step is the only thing in CI that exercises
+      # "does it actually start", and its absence is why the defect reached an operator.
+      - name: Smoke test that the published application starts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          dotnet publish src/ContactQR.App -c Release -r win-x64 --self-contained false -p:DebugType=none -o artifacts/smoke
+
+          $logs = Join-Path $env:APPDATA 'ContactQR\logs'
+          Remove-Item (Join-Path $logs '*.log') -Force -ErrorAction SilentlyContinue
+
+          # Started from a directory that is not the publish folder, because resource resolution
+          # that silently depends on the working directory is the exact defect this guards.
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'artifacts\smoke\ContactQR.App.exe'
+          Push-Location $env:TEMP
+          $app = Start-Process -FilePath $exe -PassThru
+          Pop-Location
+
+          Start-Sleep -Seconds 20
+
+          $exitedEarly = $app.HasExited
+          if (-not $exitedEarly) { Stop-Process -Id $app.Id -Force }
+
+          $log = Get-ChildItem (Join-Path $logs '*.log') -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime |
+            Select-Object -Last 1
+
+          if (-not $log) {
+            throw "The application wrote no diagnostic log, so it never reached startup."
+          }
+
+          # Copied into the workspace before any failure below, so the log survives as an
+          # artefact on exactly the runs where it is worth reading.
+          New-Item -ItemType Directory -Force -Path artifacts/startup-log | Out-Null
+          Copy-Item $log.FullName artifacts/startup-log/
+
+          Write-Host "--- diagnostic log ---"
+          Get-Content $log.FullName | Write-Host
+          Write-Host "--- end of log ---"
+
+          if ($exitedEarly) {
+            throw "The application exited during startup with code $($app.ExitCode)."
+          }
+
+          if (Select-String -Path $log.FullName -Pattern 'ERROR' -SimpleMatch -Quiet) {
+            throw "The application logged an error during startup."
+          }
+
+          Write-Host "Started, held its window for 20 seconds, and logged no errors."
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -49,6 +103,15 @@ jobs:
           name: test-results
           path: artifacts/test-results
           retention-days: 14
+
+      - name: Upload startup log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: startup-log
+          path: artifacts/startup-log
+          retention-days: 14
+          if-no-files-found: warn
 
   release:
     name: release

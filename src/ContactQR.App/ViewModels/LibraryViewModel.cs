@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ContactQR.App.Diagnostics;
 using ContactQR.Storage;
 
 namespace ContactQR.App.ViewModels;
@@ -104,6 +105,10 @@ public sealed partial class LibraryViewModel : ObservableObject
         {
             return;
         }
+
+        // Soft delete (PRD FR-7.2), but the operator does not see that distinction. Recording it
+        // answers "a client vanished from my library" without guesswork.
+        DiagnosticLog.Information($"Deleted client {client.Id} from the library.");
 
         library.Delete(client.Id);
         Refresh();
