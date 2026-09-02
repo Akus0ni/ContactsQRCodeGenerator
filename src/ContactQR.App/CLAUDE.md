@@ -15,6 +15,7 @@ screen, it lives in `ContactQR.Core` or `ContactQR.Rendering`.
 | `ViewModels/LibraryViewModel.cs` | Search, list, open, duplicate, delete. |
 | `ViewModels/EditorViewModel.cs` | Live preview, debounce, budget, remedies, save, export. |
 | `Converters/` | Token-name to brush, and an invertible boolean to visibility. |
+| `Assets/appicon.ico` | Application icon. Generated, dark-on-light, 16–256 px. |
 
 ## Layout rules that carry meaning
 
@@ -63,7 +64,17 @@ button is not default-focused, `Enter` does not activate it, and its label says
 `Export unsafe code` rather than `Continue`. FR-4.5 and metric M7 both depend on this gate
 staying believed, and a gate dismissible by muscle memory is equivalent to no gate.
 
+## The icon
+
+Three QR finder patterns, dark marks on a light field, with a few accent-coloured data modules
+in the empty quadrant. Deliberately simple — it has to stay legible at 16 px in a taskbar.
+
+It is **dark-on-light on purpose.** The application blocks light-on-dark codes outright
+(FR-5.8) because many decoders never attempt inversion, so an inverted icon would contradict
+the product on its own taskbar.
+
 ## Not built yet
 
-Export dialog with DPI and quiet-zone controls, logo file picking, colour pickers, print test
-sheet, payload inspector, export-log view. Export goes straight to a save dialog at 300 dpi.
+Export dialog with DPI and quiet-zone controls, logo file picking, colour pickers, payload
+inspector, export-log view. Export goes straight to a save dialog. The print test sheet is
+wired in and writes a PNG; sending it directly to a printer is not.

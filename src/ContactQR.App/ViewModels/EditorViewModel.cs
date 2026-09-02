@@ -518,6 +518,48 @@ public sealed partial class EditorViewModel : ObservableObject
         });
     }
 
+    /// <summary>
+    /// Writes a printable sheet carrying this code at several sizes, for physical scan-testing
+    /// before a press run (PRD FR-4.6).
+    /// </summary>
+    /// <remarks>
+    /// This is also how the module-size thresholds get calibrated. They are currently an
+    /// estimate from published guidance rather than this product's own measurement, and every
+    /// printed sheet is one run of that experiment (PRD M1b).
+    /// </remarks>
+    [RelayCommand]
+    private void PrintTestSheet()
+    {
+        if (string.IsNullOrWhiteSpace(VCardPayload))
+        {
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = "PNG image (*.png)|*.png",
+            FileName = $"{(string.IsNullOrWhiteSpace(Company) ? GivenName : Company)}_scan_test_sheet.png",
+            Title = "Save scan test sheet",
+        };
+
+        if (dialog.ShowDialog() is not true)
+        {
+            return;
+        }
+
+        var sheet = new TestSheetComposer().Compose(new TestSheetRequest
+        {
+            Payload = VCardPayload,
+            ErrorCorrection = ScannabilityCalculator.EffectiveErrorCorrection(ErrorCorrectionLevel.M, HasLogo),
+            ClientName = string.IsNullOrWhiteSpace(Company) ? GivenName : Company,
+        });
+
+        File.WriteAllBytes(dialog.FileName, sheet.Png);
+
+        StatusMessage = $"Test sheet saved with {sheet.Tiles.Count} sizes. "
+            + "Print it at 100% with no scaling, then scan each code with a phone.";
+    }
+
     [RelayCommand]
     private void SaveClient()
     {

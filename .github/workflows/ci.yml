@@ -1,0 +1,150 @@
+name: CI
+
+# Pull requests are gated on build and test only. Packaging an MSI on every PR push costs a
+# couple of minutes and produces an artefact nobody installs, so it is deliberately not done
+# here — main is protected, so nothing reaches main without this workflow passing anyway.
+#
+# The push run on main is the one that packages and publishes: it builds the MSI from the
+# merged state and cuts a release for it.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      # Warnings are errors repo-wide, and BannedApiAnalyzers fails the build on any use of
+      # System.Net, Dns, WebClient or EventSource. The offline guarantee (PRD FR-8.1, FR-8.3)
+      # is enforced by this step rather than by a reviewer remembering to look for it.
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release --logger "trx;LogFileName=results.trx" --results-directory artifacts/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: artifacts/test-results
+          retention-days: 14
+
+  release:
+    name: release
+    runs-on: windows-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # Directory.Build.props is the single source of truth for the version, so the release tag
+      # cannot drift from what the MSI reports in Programs and Features.
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content Directory.Build.props
+          $version = $props.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if (-not $version) { throw "No <Version> found in Directory.Build.props" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $version"
+
+      # A merge that does not bump the version is normal — most are. Publishing over an existing
+      # release would replace an artefact someone may already have downloaded, so an existing
+      # tag means skip, not fail.
+      - name: Check whether this version is already released
+        id: existing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Release $tag already exists — skipping. Bump <Version> to cut a new one."
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      # The installer harvests whatever is in artifacts/publish, so the publish must precede the
+      # WiX build. DebugType=none keeps symbol files out of the shipped payload.
+      - name: Publish application
+        if: steps.existing.outputs.exists == 'false'
+        run: >
+          dotnet publish src/ContactQR.App
+          -c Release -r win-x64 --self-contained false
+          -p:DebugType=none
+          -o artifacts/publish
+
+      - name: Build MSI
+        if: steps.existing.outputs.exists == 'false'
+        run: dotnet build installer/ContactQR.Installer.wixproj -c Release
+
+      - name: Upload MSI artefact
+        if: steps.existing.outputs.exists == 'false'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ContactQR-msi
+          path: installer/bin/Release/ContactQR.msi
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Create release
+        if: steps.existing.outputs.exists == 'false'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $version = "${{ steps.version.outputs.version }}"
+          $notes = @"
+          Offline vCard QR code generator for printed business cards.
+
+          **Download:** ``ContactQR.msi`` below. Install, upgrade over an existing copy, or
+          uninstall from Programs and Features.
+
+          Your client library lives at ``%APPDATA%\ContactQR\library.db`` and is **not** removed
+          when you uninstall.
+
+          This build is unsigned, so SmartScreen will warn on first run — choose More info, then
+          Run anyway. Signing is pending a code-signing certificate.
+
+          Built from ``$env:GITHUB_SHA``.
+          "@
+          gh release create $tag `
+            "installer/bin/Release/ContactQR.msi" `
+            --title "ContactQR $version" `
+            --notes $notes

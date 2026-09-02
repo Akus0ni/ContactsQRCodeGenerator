@@ -18,6 +18,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
+    <AssemblyTitle>ContactQR</AssemblyTitle>
+    <Product>ContactQR</Product>
+    <Description>Offline vCard QR code generator for printed business cards</Description>
   </PropertyGroup>
 
 </Project>

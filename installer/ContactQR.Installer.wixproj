@@ -1,0 +1,25 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+
+  <PropertyGroup>
+    <OutputName>ContactQR</OutputName>
+    <OutputType>Package</OutputType>
+    <!-- 64-bit: the payload targets win-x64 and INSTALLFOLDER lives under ProgramFiles64Folder. -->
+    <InstallerPlatform>x64</InstallerPlatform>
+
+    <!--
+      ICE60: fires on SkiaSharp's native library, which carries a version but no language
+      resource. It is a native DLL, not a font, and nothing about the install depends on the
+      language column. Suppressing it is the standard handling for native payloads.
+
+      ICE61: fires because AllowSameVersionUpgrades is on, which deliberately makes the upgrade
+      range include the current version so reinstalling the same build replaces it rather than
+      leaving two entries in Programs and Features. The two rules are mutually exclusive by
+      design and Microsoft documents the trade-off; the in-place replace is worth more here.
+    -->
+    <SuppressIces>ICE60;ICE61</SuppressIces>
+    <!-- The application payload, produced by `dotnet publish` before this project builds. -->
+    <PublishDir>$(MSBuildThisFileDirectory)..\artifacts\publish\</PublishDir>
+    <DefineConstants>PublishDir=$(PublishDir);ProductVersion=$(Version)</DefineConstants>
+  </PropertyGroup>
+
+</Project>

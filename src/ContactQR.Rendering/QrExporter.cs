@@ -44,8 +44,14 @@ public sealed record QrExportResult
     public required int SidePixels { get; init; }
 
     /// <summary>
-    /// The width actually produced. Differs slightly from the requested width because module
-    /// size is rounded to whole pixels (PRD FR-6.6).
+    /// The resolution recorded in the PNG, derived so the file prints at the requested width.
+    /// At or above the requested resolution, never below it.
+    /// </summary>
+    public required int EffectiveDotsPerInch { get; init; }
+
+    /// <summary>
+    /// The width actually produced. Matches the request to within rounding, because the
+    /// recorded resolution is derived rather than fixed — see <see cref="PhysicalSizing"/>.
     /// </summary>
     public required decimal ActualWidthMillimetres { get; init; }
 }
@@ -60,8 +66,6 @@ public sealed record QrExportResult
 /// </remarks>
 public sealed class QrExporter
 {
-    private const decimal MillimetresPerInch = 25.4m;
-
     private readonly ScannabilityCalculator calculator;
 
     /// <summary>Creates an exporter using the uncalibrated default thresholds.</summary>
@@ -100,40 +104,27 @@ public sealed class QrExporter
             request.QuietZoneModules);
 
         var symbol = QrEncoder.Encode(request.Payload, request.ErrorCorrection, request.QuietZoneModules);
-        var modulePixels = ModulePixelsFor(symbol, request);
+        var sizing = PhysicalSizing.Fit(
+            symbol.TotalModulesPerSide,
+            request.WidthMillimetres,
+            request.DotsPerInch);
 
-        using var bitmap = QrImageRenderer.Render(symbol, modulePixels, request.Render);
+        using var bitmap = QrImageRenderer.Render(symbol, sizing.ModulePixels, request.Render);
         var selfTest = QrSelfTest.Verify(bitmap, request.Payload);
 
         using var image = SKImage.FromBitmap(bitmap);
         using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
-        var png = PngDensityWriter.WithResolution(encoded.ToArray(), request.DotsPerInch);
-
-        var sidePixels = symbol.TotalModulesPerSide * modulePixels;
+        var png = PngDensityWriter.WithResolution(encoded.ToArray(), sizing.DotsPerInch);
 
         return new QrExportResult
         {
             Png = png,
             Assessment = assessment,
             SelfTest = selfTest,
-            ModulePixels = modulePixels,
-            SidePixels = sidePixels,
-            ActualWidthMillimetres = sidePixels * MillimetresPerInch / request.DotsPerInch,
+            ModulePixels = sizing.ModulePixels,
+            SidePixels = sizing.SidePixels,
+            EffectiveDotsPerInch = sizing.DotsPerInch,
+            ActualWidthMillimetres = sizing.WidthMillimetres,
         };
-    }
-
-    /// <summary>
-    /// Chooses a whole-pixel module size for the requested physical width.
-    /// </summary>
-    /// <remarks>
-    /// Rounds down rather than to nearest, so the output is never wider than asked for — an
-    /// oversized QR silently breaks a card layout, whereas a fractionally narrow one does not.
-    /// </remarks>
-    private static int ModulePixelsFor(QrSymbol symbol, QrExportRequest request)
-    {
-        var targetPixels = request.WidthMillimetres / MillimetresPerInch * request.DotsPerInch;
-        var modulePixels = (int)Math.Floor(targetPixels / symbol.TotalModulesPerSide);
-
-        return Math.Max(1, modulePixels);
     }
 }

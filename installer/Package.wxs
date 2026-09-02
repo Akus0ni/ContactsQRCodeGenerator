@@ -1,0 +1,84 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <!--
+    ContactQR installer.
+
+    Install, upgrade and uninstall all go through this one package. There is deliberately no
+    in-application update check: PRD FR-8.2 bans it, because an updater is a network client and
+    the product's central promise is that client contact data never leaves the machine. Updates
+    are a new MSI, run by the operator, and MajorUpgrade below makes that a clean replace rather
+    than a second copy.
+  -->
+  <Package Name="ContactQR"
+           Manufacturer="ContactQR"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="6f2a1c94-3d7e-4b16-9f8a-1c0d5e7b2a43"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <SummaryInformation Description="Offline vCard QR code generator for printed business cards" />
+
+    <!--
+      Upgrading replaces the installed copy in place. Scheduled afterInstallValidate so the old
+      version is removed before the new files land, which avoids a half-upgraded install if the
+      copy fails partway.
+    -->
+    <MajorUpgrade
+      Schedule="afterInstallValidate"
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of ContactQR is already installed. Uninstall it first if you need to go back." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.PublishDir)ContactQR.App.exe" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Akus0ni/ContactsQRCodeGenerator" />
+
+    <!-- .NET 10 desktop runtime is required and is not something the MSI should silently skip. -->
+    <Launch Condition="Installed OR VersionNT >= 603"
+            Message="ContactQR requires Windows 10 or later." />
+
+    <Feature Id="Main" Title="ContactQR" Level="1">
+      <ComponentGroupRef Id="ApplicationFiles" />
+      <ComponentGroupRef Id="Shortcuts" />
+    </Feature>
+
+    <!--
+      Harvest the publish output rather than listing files by hand. The payload includes
+      SkiaSharp's native library and every transitive dependency, and a hand-maintained list
+      would drift the first time one of them changed.
+    -->
+    <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)**" />
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ContactQR" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="ContactQR" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="Shortcuts">
+      <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="8fd98596-fed2-45bf-8290-188047d6aa6c">
+        <Shortcut Id="StartMenuEntry"
+                  Name="ContactQR"
+                  Description="Offline vCard QR code generator"
+                  Target="[INSTALLFOLDER]ContactQR.App.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\ContactQR" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!--
+      Uninstall deliberately leaves the client library at %APPDATA%\ContactQR\library.db in
+      place. It is the operator's own client records, built up over years, and destroying it on
+      uninstall would be indefensible — an upgrade that reinstalls would silently wipe the book.
+      Removing it is a manual act.
+    -->
+
+  </Package>
+</Wix>
