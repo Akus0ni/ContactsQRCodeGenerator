@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src/ContactQR.App/Assets/appicon.ico" width="96" alt="ContactQR">
+<img src=".github/readme-icon.png" width="96" alt="ContactQR">
 
 # ContactQR
 
