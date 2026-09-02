@@ -1,6 +1,7 @@
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ContactQR.App.Diagnostics;
 using ContactQR.Storage;
 
 namespace ContactQR.App.ViewModels;
@@ -71,6 +72,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             Directory.CreateDirectory(directory);
         }
+
+        // Opening the library is the first thing that touches the filesystem, so it is the first
+        // thing that can fail on a machine the application has never run on. Recording the path
+        // it resolved to turns "it will not start" into a one-line answer.
+        DiagnosticLog.Information($"Opening client library at {path}.");
 
         return path;
     }

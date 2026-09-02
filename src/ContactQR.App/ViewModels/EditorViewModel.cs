@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using ContactQR.Core.Contacts;
 using ContactQR.Core.Scannability;
 using ContactQR.Core.VCard;
+using ContactQR.App.Diagnostics;
 using ContactQR.App.Views;
 using ContactQR.Rendering;
 using ContactQR.Storage;
@@ -442,6 +443,10 @@ public sealed partial class EditorViewModel : ObservableObject
         {
             if (assessment.Verdict is ScannabilityVerdict.ExceedsCapacity)
             {
+                DiagnosticLog.Information(
+                    $"Export refused: payload is {assessment.OverflowBytes} bytes over capacity "
+                        + $"at {assessment.ErrorCorrection}.");
+
                 StatusMessage = $"{assessment.OverflowBytes} bytes too many to encode at all. "
                     + "Remove a field before exporting.";
                 return;
@@ -449,11 +454,21 @@ public sealed partial class EditorViewModel : ObservableObject
 
             if (!UnsafeExportDialog.Confirm(Application.Current.MainWindow, assessment))
             {
+                DiagnosticLog.Information("Export cancelled at the unsafe-export dialog.");
                 StatusMessage = "Export cancelled. Nothing was written.";
                 return;
             }
 
             overridden = true;
+
+            // The override is already written to the export log in the database (PRD FR-4.5).
+            // It is repeated here because this is the file the operator can actually read when a
+            // printed card comes back failing.
+            DiagnosticLog.Warning(
+                "Unsafe export override accepted. "
+                    + $"Verdict {assessment.Verdict}, "
+                    + $"{assessment.ModuleSizeMillimetres:0.000} mm per module "
+                    + $"at {PrintWidthMillimetres:0.0} mm.");
         }
 
         var dialog = new Microsoft.Win32.SaveFileDialog
@@ -479,12 +494,32 @@ public sealed partial class EditorViewModel : ObservableObject
 
         if (!result.SelfTest.Passed)
         {
+            // A code that fails its own decode-back is a defect in this application, not an
+            // operator mistake (PRD EC-18). It needs to leave a trace that can be reported.
+            DiagnosticLog.Warning(
+                "Decode-back self-test FAILED at export; nothing was written. "
+                    + $"{result.SelfTest.Diagnostics}");
+
             StatusMessage = result.SelfTest.Diagnostics ?? "Verification failed. Nothing was written.";
             return;
         }
 
-        File.WriteAllBytes(dialog.FileName, result.Png);
+        if (!TryWrite(dialog.FileName, result.Png))
+        {
+            return;
+        }
+
         RecordExport(dialog.FileName, result, overridden);
+
+        DiagnosticLog.Information(
+            $"Exported {dialog.FileName} — "
+                + $"{result.Assessment.PayloadBytes} bytes, "
+                + $"{result.Assessment.ErrorCorrection}, "
+                + $"version {result.Assessment.Version}, "
+                + $"{result.ActualWidthMillimetres:0.0} mm at 300 dpi, "
+                + $"{result.Assessment.ModuleSizeMillimetres:0.000} mm per module, "
+                + $"verdict {result.Assessment.Verdict}"
+                + (overridden ? ", UNSAFE OVERRIDE" : string.Empty));
 
         StatusMessage = overridden
             ? $"Exported with an override to {Path.GetFileName(dialog.FileName)}. "
@@ -554,10 +589,41 @@ public sealed partial class EditorViewModel : ObservableObject
             ClientName = string.IsNullOrWhiteSpace(Company) ? GivenName : Company,
         });
 
-        File.WriteAllBytes(dialog.FileName, sheet.Png);
+        if (!TryWrite(dialog.FileName, sheet.Png))
+        {
+            return;
+        }
+
+        DiagnosticLog.Information(
+            $"Saved scan test sheet to {dialog.FileName} with {sheet.Tiles.Count} sizes.");
 
         StatusMessage = $"Test sheet saved with {sheet.Tiles.Count} sizes. "
             + "Print it at 100% with no scaling, then scan each code with a phone.";
+    }
+
+    /// <summary>
+    /// Writes an exported file, reporting a refused path rather than failing the application.
+    /// </summary>
+    /// <remarks>
+    /// A read-only folder, a disconnected share or a full disk (PRD EC-23) are ordinary operator
+    /// conditions, not crashes, and each needs a message that names its own cause.
+    /// </remarks>
+    private bool TryWrite(string filePath, byte[] contents)
+    {
+        try
+        {
+            File.WriteAllBytes(filePath, contents);
+            return true;
+        }
+        catch (Exception writeFailure) when (
+            writeFailure is IOException
+                or UnauthorizedAccessException
+                or DirectoryNotFoundException)
+        {
+            DiagnosticLog.Failure($"Could not write {filePath}.", writeFailure);
+            StatusMessage = $"Could not write the file: {writeFailure.Message}";
+            return false;
+        }
     }
 
     [RelayCommand]
@@ -569,8 +635,14 @@ public sealed partial class EditorViewModel : ObservableObject
             return;
         }
 
+        var isNew = ClientId is null;
+
         ClientId = library.Save(BuildClient(), ClientId);
         SaveState = "Saved";
+
+        DiagnosticLog.Information(
+            $"{(isNew ? "Created" : "Updated")} client {ClientId} in the library.");
+
         StatusMessage = $"Saved {GivenName} to the library.";
     }
 

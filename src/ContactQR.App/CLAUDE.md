@@ -15,6 +15,7 @@ screen, it lives in `ContactQR.Core` or `ContactQR.Rendering`.
 | `ViewModels/LibraryViewModel.cs` | Search, list, open, duplicate, delete. |
 | `ViewModels/EditorViewModel.cs` | Live preview, debounce, budget, remedies, save, export. |
 | `Converters/` | Token-name to brush, and an invertible boolean to visibility. |
+| `Diagnostics/DiagnosticLog.cs` | The local log file. The only diagnostic channel this product has. |
 | `Assets/appicon.ico` | Application icon. Generated, dark-on-light, 16–256 px. |
 
 ## Layout rules that carry meaning
@@ -64,6 +65,30 @@ button is not default-focused, `Enter` does not activate it, and its label says
 `Export unsafe code` rather than `Continue`. FR-4.5 and metric M7 both depend on this gate
 staying believed, and a gate dismissible by muscle memory is equivalent to no gate.
 
+## The log
+
+`%APPDATA%\ContactQR\logs\contactqr-{date}.log`, beside the client library. One file per day,
+deleted after 14 days.
+
+This is the **only** channel by which a failure on the operator's machine can reach anyone. The
+product may not report crashes over the network (FR-8.1, FR-8.2), so a failure that writes
+nothing to disk is a failure nobody can act on. That is not hypothetical: 1.0.1 shipped an
+installer whose application died during `Application.DoStartup`, and the entire available bug
+report was "it does not open".
+
+- **The handlers are wired in the `App` constructor, not `OnStartup`.** WPF loads the
+  `StartupUri` window from inside `DoStartup`, so a broken resource, dictionary or binding
+  throws before any override would run. That is precisely the failure that shipped.
+- **`DiagnosticLog` never throws.** Every write failure is swallowed. A logger that can crash
+  the application it is diagnosing is worse than no logger.
+- **Its members are static** so they work from `AppDomain.UnhandledException`, which can fire
+  when no object graph exists.
+- **Log outcomes and decisions, not UI churn.** Export, override, self-test failure, save,
+  delete, library open. Do not log keystrokes, preview regeneration or debounce ticks — the
+  file has to stay readable by a person looking for one event.
+- **Never write a vCard payload to the log.** The database already holds the snapshot
+  (FR-7.7), and the log is the file an operator will attach to an email.
+
 ## The icon
 
 Three QR finder patterns, dark marks on a light field, with a few accent-coloured data modules
@@ -72,6 +97,17 @@ in the empty quadrant. Deliberately simple — it has to stay legible at 16 px i
 It is **dark-on-light on purpose.** The application blocks light-on-dark codes outright
 (FR-5.8) because many decoders never attempt inversion, so an inverted icon would contradict
 the product on its own taskbar.
+
+**`<ApplicationIcon>` and the window icon are two different things, and this cost a release.**
+`<ApplicationIcon>` only stamps the Win32 icon into the executable; it does not create an
+MSBuild item, so nothing copies or embeds the file. `MainWindow` also asks WPF for that icon at
+runtime, which needs a compiled `<Resource>` — and the missing resource was invisible in
+development because `dotnet run` sets the working directory to the project folder, where the
+file happens to sit on disk. Every other layout, including the MSI, crashed on launch.
+
+The window icon is therefore referenced as `pack://application:,,,/Assets/appicon.ico`. The
+explicit pack URI is the point: it can only resolve from assembly resources, so it cannot
+silently fall back to a file next to the working directory and hide the same defect again.
 
 ## Not built yet
 

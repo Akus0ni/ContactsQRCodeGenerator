@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\ContactQR.Core\ContactQR.Core.csproj" />
@@ -10,6 +10,17 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.151.1" />
+  </ItemGroup>
+
+  <!--
+    ApplicationIcon below only stamps the Win32 icon into the executable — it does not make the
+    file an item, so nothing copies or embeds it. MainWindow asks WPF for the same icon at
+    runtime, so it must additionally be a compiled Resource. Without this the application starts
+    from the project directory (where the file happens to be on disk) and dies with
+    "Cannot locate resource 'assets/appicon.ico'" everywhere else, including after install.
+  -->
+  <ItemGroup>
+    <Resource Include="Assets\appicon.ico" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -50,7 +50,16 @@
       would drift the first time one of them changed.
     -->
     <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
-      <Files Include="$(var.PublishDir)**" />
+      <!--
+        Symbols and XML documentation are excluded. SkiaSharp ships an 89 MB native .pdb that
+        the publish output picks up automatically — around 85% of the payload, installed on
+        every operator's machine to no purpose. The .xml files are IntelliSense documentation
+        for a library nobody references from here.
+      -->
+      <Files Include="$(var.PublishDir)**">
+        <Exclude Files="$(var.PublishDir)**\*.pdb" />
+        <Exclude Files="$(var.PublishDir)**\*.xml" />
+      </Files>
     </ComponentGroup>
 
     <StandardDirectory Id="ProgramFiles64Folder">
