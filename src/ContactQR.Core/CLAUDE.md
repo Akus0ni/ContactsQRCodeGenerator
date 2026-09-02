@@ -14,6 +14,7 @@ way — everything here should be callable from a test with no fixture and no se
 | `Contacts` | `ClientRecord`, `ContactPoint`, `PostalAddress`. Immutable records. |
 | `VCard` | `VCardEncoder`, `VCardTextEscaper`. Record in, string out. |
 | `Scannability` | `QrCapacityTable`, `ScannabilityCalculator`, `ScannabilityAssessment`. |
+| `Contacts` (guidance) | `ContactField`, `ContactFieldGuidance`, `ContactFieldGuidanceCatalogue` — tooltip content. |
 
 ## VCard — the highest-risk code in the product
 
@@ -65,3 +66,16 @@ Two things to know before changing it:
 `QrCapacityTable` holds 160 hand-entered ISO/IEC 18004 values. Its tests check internal
 consistency, which catches transcription error but cannot prove correctness — **cross-verify
 against the QR encoder before this table gates a real export** (FR-3.3).
+
+## Field guidance
+
+`ContactFieldGuidanceCatalogue` holds the tooltip content for every editor field: what the
+field becomes on the recipient's phone, the vCard property it is encoded as, and any known
+platform caveat. It lives here rather than in XAML so the mapping is stated once, beside the
+encoder that implements it.
+
+**`ConfirmedOnDeviceMatrix` is `false` for every entry and must stay that way until the
+physical device matrix has run.** PRD EC-30 and M1a require per-platform behaviour to be
+established by measurement, not by reading the vCard specification. The interface presents
+unconfirmed guidance as expected rather than measured behaviour. Flipping an entry to `true`
+is a deliberate act that follows a device test, never a guess.

@@ -645,7 +645,7 @@ Below the canvas: `1:1` toggle · zoom · quiet-zone toggle · grid toggle · a 
 
 #### `FieldRow`
 
-The workhorse. Label row (label · required dot · `ByteCostChip`), input, helper/error row.
+The workhorse. Label row (label · required dot · `ByteCostChip` · `FieldHelpPopover` trigger), input, helper/error row.
 
 - **Variants:** `text` · `phone` · `email` · `url` · `multiline` · `select`
 - **States:** `empty` · `focused` · `filled` · `normalised` (shows what it became, e.g. E.164 — with an `undo` affordance, since FR-1.4 forbids silent guessing) · `advisory` (amber, non-blocking — FR-1.6) · `blocking` (red, required field empty) · `disabled` · `readOnly` (degraded mode)
@@ -659,6 +659,41 @@ The workhorse. Label row (label · required dot · `ByteCostChip`), input, helpe
 Collapsible section with an eyebrow header and a `ByteCostChip (group)` summing its children — so a collapsed **Address** group still shows `78 B`. Collapsing must never hide a cost.
 
 - **States:** `expanded` · `collapsed` · `collapsedWithError` (cannot be collapsed while it contains a blocking error)
+
+#### `FieldHelpPopover`
+
+Explains what a field becomes on the recipient's phone. Attached to every `FieldRow` via a
+small `?` affordance in the label row.
+
+**Why this exists.** The operator is answering a client's question — *"what will people
+actually get when they scan my card?"* — and today he is guessing. He has no way to know that
+a LinkedIn address does not become a linked profile, that a note is invisible until the
+contact is opened, or that a mobile without a country code fails for a caller abroad. The
+tooltip is where that knowledge lives, phrased so it can be repeated to the client verbatim.
+
+- **Anatomy**, in reading order:
+  1. **What it becomes** — one sentence in outcome terms. *"Saved as a mobile number and can be called or texted straight from the contact card."*
+  2. **Caveat**, when there is one, in `verdict.marginal.text`. *"It does not become a linked social profile — both phones treat it as a plain web link."*
+  3. **Byte cost** for this field's current content, tying the explanation back to P2.
+  4. **vCard property** in `type.mono`, `text.tertiary` — `TEL;TYPE=CELL`. Last, and quietest: it is the audit trail, not the answer.
+- **Variants:** `default` · `required` (adds why the field blocks generation) · `costly` (leads with the byte cost when the field is over 25% of remaining capacity)
+- **States:** `expected` · `confirmed` · `empty` (field unpopulated — shows what it *would* become) · `caveat`
+
+**The `expected` versus `confirmed` distinction is load-bearing.** PRD EC-30 and M1a require
+per-platform behaviour to be established by measurement, not by reading the vCard
+specification. Until the device matrix has run, every entry is `expected` and the popover
+footer says so — *"Expected behaviour, not yet confirmed on test devices."* Presenting an
+untested claim in the same voice as a measured one would be the same species of dishonesty as
+rendering a QR we have not verified, and P3 forbids it.
+
+The content is not authored in XAML. It comes from `ContactFieldGuidanceCatalogue` in
+`ContactQR.Core`, so the mapping is stated once, beside the encoder that implements it, and
+cannot drift.
+
+**Accessibility.** Never hover-only — the `?` is a real focusable control, `Enter` and `Space`
+open it, `Esc` closes it and returns focus. The content is exposed as
+`AutomationProperties.HelpText` on the field's input, so a screen-reader user gets the
+explanation on the field itself without hunting for a separate control.
 
 #### `AcknowledgementCheckbox`
 
