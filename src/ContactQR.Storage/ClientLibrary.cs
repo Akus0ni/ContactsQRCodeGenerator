@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ContactQR.Core.Contacts;
+using ContactQR.Core.Scannability;
 using Microsoft.Data.Sqlite;
 
 namespace ContactQR.Storage;
@@ -128,15 +129,98 @@ public sealed class ClientLibrary : IDisposable
         command.ExecuteNonQuery();
     }
 
-    /// <summary>Records that a PNG was exported for a client.</summary>
-    /// <param name="id">The client exported.</param>
-    public void RecordExport(Guid id)
+    /// <summary>
+    /// Records an exported PNG in the append-only export log and stamps the client.
+    /// </summary>
+    /// <param name="entry">What was exported, and under what verdict.</param>
+    /// <remarks>
+    /// Written in one transaction so the log and the client stamp cannot disagree after a
+    /// crash mid-write.
+    /// </remarks>
+    public void RecordExport(ExportLogEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        using var transaction = connection.BeginTransaction();
+
+        using (var log = connection.CreateCommand())
+        {
+            log.Transaction = transaction;
+            log.CommandText = """
+                INSERT INTO export_log (
+                    client_id, file_path, vcard_snapshot, payload_bytes, error_correction,
+                    version, width_mm, module_size_mm, verdict, unsafe_override,
+                    self_test_passed, exported_at)
+                VALUES (
+                    $clientId, $filePath, $snapshot, $bytes, $ecc,
+                    $version, $width, $moduleSize, $verdict, $override,
+                    $selfTest, $at);
+                """;
+            log.Parameters.AddWithValue("$clientId", entry.ClientId.ToString());
+            log.Parameters.AddWithValue("$filePath", entry.FilePath);
+            log.Parameters.AddWithValue("$snapshot", entry.VCardSnapshot);
+            log.Parameters.AddWithValue("$bytes", entry.PayloadBytes);
+            log.Parameters.AddWithValue("$ecc", entry.ErrorCorrection.ToString());
+            log.Parameters.AddWithValue("$version", entry.Version);
+            log.Parameters.AddWithValue("$width", (double)entry.WidthMillimetres);
+            log.Parameters.AddWithValue("$moduleSize", (double)entry.ModuleSizeMillimetres);
+            log.Parameters.AddWithValue("$verdict", entry.Verdict.ToString());
+            log.Parameters.AddWithValue("$override", entry.UnsafeOverride ? 1 : 0);
+            log.Parameters.AddWithValue("$selfTest", entry.SelfTestPassed ? 1 : 0);
+            log.Parameters.AddWithValue("$at", entry.ExportedAt.ToUnixTimeSeconds());
+            log.ExecuteNonQuery();
+        }
+
+        using (var stamp = connection.CreateCommand())
+        {
+            stamp.Transaction = transaction;
+            stamp.CommandText = "UPDATE clients SET last_exported_at = $at WHERE id = $id";
+            stamp.Parameters.AddWithValue("$id", entry.ClientId.ToString());
+            stamp.Parameters.AddWithValue("$at", entry.ExportedAt.ToUnixTimeSeconds());
+            stamp.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Returns the export history, newest first.</summary>
+    /// <param name="clientId">Limit to one client, or <see langword="null"/> for everything.</param>
+    /// <returns>The recorded exports.</returns>
+    public IReadOnlyList<ExportLogEntry> ExportHistory(Guid? clientId = null)
     {
         using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE clients SET last_exported_at = $now WHERE id = $id";
-        command.Parameters.AddWithValue("$id", id.ToString());
-        command.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        command.ExecuteNonQuery();
+        command.CommandText = clientId is null
+            ? "SELECT * FROM export_log ORDER BY exported_at DESC"
+            : "SELECT * FROM export_log WHERE client_id = $id ORDER BY exported_at DESC";
+
+        if (clientId is not null)
+        {
+            command.Parameters.AddWithValue("$id", clientId.Value.ToString());
+        }
+
+        var entries = new List<ExportLogEntry>();
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            entries.Add(new ExportLogEntry
+            {
+                ClientId = Guid.Parse(reader.GetString(reader.GetOrdinal("client_id"))),
+                FilePath = reader.GetString(reader.GetOrdinal("file_path")),
+                VCardSnapshot = reader.GetString(reader.GetOrdinal("vcard_snapshot")),
+                PayloadBytes = reader.GetInt32(reader.GetOrdinal("payload_bytes")),
+                ErrorCorrection = Enum.Parse<ErrorCorrectionLevel>(reader.GetString(reader.GetOrdinal("error_correction"))),
+                Version = reader.GetInt32(reader.GetOrdinal("version")),
+                WidthMillimetres = (decimal)reader.GetDouble(reader.GetOrdinal("width_mm")),
+                ModuleSizeMillimetres = (decimal)reader.GetDouble(reader.GetOrdinal("module_size_mm")),
+                Verdict = Enum.Parse<ScannabilityVerdict>(reader.GetString(reader.GetOrdinal("verdict"))),
+                UnsafeOverride = reader.GetInt32(reader.GetOrdinal("unsafe_override")) is 1,
+                SelfTestPassed = reader.GetInt32(reader.GetOrdinal("self_test_passed")) is 1,
+                ExportedAt = DateTimeOffset.FromUnixTimeSeconds(reader.GetInt64(reader.GetOrdinal("exported_at"))),
+            });
+        }
+
+        return entries;
     }
 
     /// <summary>
@@ -166,6 +250,23 @@ public sealed class ClientLibrary : IDisposable
                 deleted_at       INTEGER NULL
             );
             CREATE INDEX IF NOT EXISTS idx_clients_updated ON clients (updated_at DESC);
+
+            CREATE TABLE IF NOT EXISTS export_log (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id           TEXT NOT NULL,
+                file_path           TEXT NOT NULL,
+                vcard_snapshot      TEXT NOT NULL,
+                payload_bytes       INTEGER NOT NULL,
+                error_correction    TEXT NOT NULL,
+                version             INTEGER NOT NULL,
+                width_mm            REAL NOT NULL,
+                module_size_mm      REAL NOT NULL,
+                verdict             TEXT NOT NULL,
+                unsafe_override     INTEGER NOT NULL,
+                self_test_passed    INTEGER NOT NULL,
+                exported_at         INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_export_client ON export_log (client_id, exported_at DESC);
             """;
         command.ExecuteNonQuery();
     }

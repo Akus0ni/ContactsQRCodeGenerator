@@ -23,3 +23,16 @@ The contact record is stored as a JSON payload in one column rather than as norm
 columns. That keeps `ClientRecord` free to change shape without a migration, at the cost of
 querying inside JSON — acceptable at this scale, and revisit if the library ever grows past a
 few thousand records.
+
+## The export log
+
+`RecordExport` appends to `export_log` and stamps the client in one transaction, so the two
+cannot disagree after a crash mid-write.
+
+`VCardSnapshot` is the most useful column in the product for support: it reconstructs exactly
+what was encoded at the time, after the client record has since been edited. When a client
+rings eight months later about a card that will not scan, this answers it in thirty seconds
+instead of by guessing (PRD FR-7.7).
+
+`UnsafeOverride` is recorded separately from `Verdict` because "I chose this" and "this was
+broken" are different conditions, and the operator has to be able to tell them apart later.

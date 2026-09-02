@@ -1,0 +1,156 @@
+<UserControl x:Class="ContactQR.App.Views.LibraryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource SurfaceWindow}">
+
+    <!--
+        DESIGN.md section 6.2. Search first and focused, because the returning-client reprint
+        spends almost its whole time budget here. A table rather than a card grid: denser,
+        sortable, and scannable by someone who knows what he is looking for.
+    -->
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="SearchBox"
+                     Grid.Column="0"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Searches names, companies and email addresses."
+                     Margin="0,0,12,0" />
+
+            <Button Grid.Column="1"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding NewClientCommand}"
+                    Content="New client" />
+        </Grid>
+
+        <TextBlock Grid.Row="1"
+                   Style="{StaticResource EyebrowText}"
+                   Text="{Binding CountLabel}" />
+
+        <Grid Grid.Row="2">
+            <!-- Empty library. An invitation to act, not a marketing panel. -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <TextBlock Text="No clients yet"
+                           Style="{StaticResource PanelHeading}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Add your first client to generate a QR code."
+                           Style="{StaticResource BodyText}"
+                           Foreground="{StaticResource TextSecondary}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center"
+                       Foreground="{StaticResource TextSecondary}"
+                       Text="No clients match that search.">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasNoMatches}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <ListBox ItemsSource="{Binding Clients}"
+                     SelectedItem="{Binding SelectedClient}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0,0,0,4" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Row"
+                                            Background="{StaticResource SurfacePanel}"
+                                            CornerRadius="{StaticResource RadiusControl}"
+                                            Padding="14,10">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Row" Property="Background" Value="{StaticResource SurfaceHover}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Row" Property="Background" Value="{StaticResource SurfaceSelected}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource BodyText}" />
+                                <TextBlock Text="{Binding Record.Company}"
+                                           Style="{StaticResource FieldLabel}"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                       Style="{StaticResource MonoText}"
+                                       Text="{Binding UpdatedAt, StringFormat='changed {0:d MMM yyyy}'}" />
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource GhostButton}"
+                                        Content="Open"
+                                        Command="{Binding DataContext.OpenClientCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Style="{StaticResource GhostButton}"
+                                        Content="Duplicate"
+                                        ToolTip="Copies these details into a new record with the name cleared — for a second person at the same firm."
+                                        Command="{Binding DataContext.DuplicateClientCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Style="{StaticResource GhostButton}"
+                                        Content="Delete"
+                                        ToolTip="Deletes are recoverable — the record is hidden, not destroyed."
+                                        Command="{Binding DataContext.DeleteClientCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </Grid>
+</UserControl>

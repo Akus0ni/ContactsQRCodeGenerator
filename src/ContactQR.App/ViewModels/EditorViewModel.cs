@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -7,7 +8,9 @@ using CommunityToolkit.Mvvm.Input;
 using ContactQR.Core.Contacts;
 using ContactQR.Core.Scannability;
 using ContactQR.Core.VCard;
+using ContactQR.App.Views;
 using ContactQR.Rendering;
+using ContactQR.Storage;
 using SkiaSharp;
 
 namespace ContactQR.App.ViewModels;
@@ -20,6 +23,9 @@ public sealed partial class EditorViewModel : ObservableObject
     private readonly ScannabilityCalculator calculator = new();
     private readonly QrExporter exporter = new();
     private readonly DispatcherTimer debounce;
+    private readonly ClientLibrary library;
+
+    private ScannabilityAssessment? lastAssessment;
 
     [ObservableProperty]
     private string givenName = string.Empty;
@@ -102,8 +108,18 @@ public sealed partial class EditorViewModel : ObservableObject
     [ObservableProperty]
     private string vCardPayload = string.Empty;
 
-    public EditorViewModel()
+    /// <summary>The library record being edited, or null for an unsaved client.</summary>
+    [ObservableProperty]
+    private Guid? clientId;
+
+    [ObservableProperty]
+    private string saveState = "Not saved";
+
+    public EditorViewModel(ClientLibrary library)
     {
+        ArgumentNullException.ThrowIfNull(library);
+        this.library = library;
+
         // 250ms debounce. Re-encoding per keystroke is wasteful and makes the byte counter
         // flicker distractingly (DESIGN FR-3.5).
         debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
@@ -139,6 +155,8 @@ public sealed partial class EditorViewModel : ObservableObject
             return;
         }
 
+        SaveState = ClientId is null ? "Not saved" : "Unsaved changes";
+
         debounce.Stop();
         debounce.Start();
     }
@@ -166,6 +184,7 @@ public sealed partial class EditorViewModel : ObservableObject
         var assessment = calculator.Assess(payloadBytes, level, PrintWidthMillimetres);
 
         VCardPayload = payload;
+        lastAssessment = assessment;
         ApplyAssessment(assessment);
         RenderPreview(payload, level);
         BuildRemedies(client, assessment, level);
@@ -184,6 +203,7 @@ public sealed partial class EditorViewModel : ObservableObject
         MinimumSafeWidthReadout = "—";
         BudgetFraction = 0;
         VCardPayload = string.Empty;
+        lastAssessment = null;
 
         VerdictWord = string.IsNullOrWhiteSpace(GivenName)
             ? "Add a given name"
@@ -398,18 +418,48 @@ public sealed partial class EditorViewModel : ObservableObject
         return source;
     }
 
+    /// <summary>
+    /// Exports a PNG, enforcing both gates.
+    /// </summary>
+    /// <remarks>
+    /// A blocking verdict routes through <see cref="UnsafeExportDialog"/>, which requires a
+    /// deliberate acknowledgement and records the override (PRD FR-4.5). A failed self-test is
+    /// fatal and has no override at all — that gate protects against having drawn something we
+    /// cannot verify, which is never a judgement call to hand the operator.
+    /// </remarks>
     [RelayCommand]
     private void ExportPng()
     {
-        if (string.IsNullOrWhiteSpace(VCardPayload))
+        if (string.IsNullOrWhiteSpace(VCardPayload) || lastAssessment is null)
         {
             return;
+        }
+
+        var assessment = lastAssessment;
+        var overridden = false;
+
+        if (assessment.BlocksExport)
+        {
+            if (assessment.Verdict is ScannabilityVerdict.ExceedsCapacity)
+            {
+                StatusMessage = $"{assessment.OverflowBytes} bytes too many to encode at all. "
+                    + "Remove a field before exporting.";
+                return;
+            }
+
+            if (!UnsafeExportDialog.Confirm(Application.Current.MainWindow, assessment))
+            {
+                StatusMessage = "Export cancelled. Nothing was written.";
+                return;
+            }
+
+            overridden = true;
         }
 
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             Filter = "PNG image (*.png)|*.png",
-            FileName = SuggestedFileName(),
+            FileName = SuggestedFileName(overridden),
             Title = "Export QR code",
         };
 
@@ -434,24 +484,129 @@ public sealed partial class EditorViewModel : ObservableObject
         }
 
         File.WriteAllBytes(dialog.FileName, result.Png);
+        RecordExport(dialog.FileName, result, overridden);
 
-        StatusMessage = $"Exported {result.SidePixels} × {result.SidePixels} px "
-            + $"({result.ActualWidthMillimetres:0.0} mm at 300 dpi) to {Path.GetFileName(dialog.FileName)}.";
+        StatusMessage = overridden
+            ? $"Exported with an override to {Path.GetFileName(dialog.FileName)}. "
+                + "Test it on a printed proof before sending the card to press."
+            : $"Exported {result.SidePixels} px square "
+                + $"({result.ActualWidthMillimetres:0.0} mm at 300 dpi) to {Path.GetFileName(dialog.FileName)}.";
     }
 
-    private string SuggestedFileName()
+    private void RecordExport(string filePath, QrExportResult result, bool overridden)
+    {
+        // An unsaved walk-in job has nothing to attach the log entry to, and saving it here
+        // would force a library record the operator did not ask for (PRD FR-7.8).
+        if (ClientId is not { } id)
+        {
+            return;
+        }
+
+        library.RecordExport(new ExportLogEntry
+        {
+            ClientId = id,
+            FilePath = filePath,
+            VCardSnapshot = VCardPayload,
+            PayloadBytes = result.Assessment.PayloadBytes,
+            ErrorCorrection = result.Assessment.ErrorCorrection,
+            Version = result.Assessment.Version,
+            WidthMillimetres = PrintWidthMillimetres,
+            ModuleSizeMillimetres = result.Assessment.ModuleSizeMillimetres,
+            Verdict = result.Assessment.Verdict,
+            UnsafeOverride = overridden,
+            SelfTestPassed = result.SelfTest.Passed,
+        });
+    }
+
+    [RelayCommand]
+    private void SaveClient()
+    {
+        if (string.IsNullOrWhiteSpace(GivenName) || string.IsNullOrWhiteSpace(Mobile))
+        {
+            StatusMessage = "A given name and a mobile number are needed before a client can be saved.";
+            return;
+        }
+
+        ClientId = library.Save(BuildClient(), ClientId);
+        SaveState = "Saved";
+        StatusMessage = $"Saved {GivenName} to the library.";
+    }
+
+    /// <summary>Loads a stored client into the form.</summary>
+    /// <param name="stored">The record to edit.</param>
+    public void Load(StoredClient stored)
+    {
+        ArgumentNullException.ThrowIfNull(stored);
+
+        var record = stored.Record;
+
+        ClientId = stored.Id;
+        GivenName = record.GivenName;
+        FamilyName = record.FamilyName ?? string.Empty;
+        Company = record.Company ?? string.Empty;
+        JobTitle = record.JobTitle ?? string.Empty;
+        Note = record.Note ?? string.Empty;
+        Street = record.Address?.Street ?? string.Empty;
+        City = record.Address?.City ?? string.Empty;
+        PostalCode = record.Address?.PostalCode ?? string.Empty;
+
+        Mobile = record.PrimaryPhone?.ValueToEncode ?? string.Empty;
+        WorkPhone = ValueOf(record, ContactPointKind.Phone, ContactPointSubtype.Work);
+        WorkEmail = ValueOf(record, ContactPointKind.Email, ContactPointSubtype.Work);
+        Website = ValueOf(record, ContactPointKind.Url, ContactPointSubtype.Social);
+
+        SaveState = "Saved";
+        Regenerate();
+    }
+
+    /// <summary>Clears the form for a new client.</summary>
+    public void StartNew()
+    {
+        ClientId = null;
+        GivenName = string.Empty;
+        FamilyName = string.Empty;
+        Company = string.Empty;
+        JobTitle = string.Empty;
+        Mobile = string.Empty;
+        WorkPhone = string.Empty;
+        WorkEmail = string.Empty;
+        Website = string.Empty;
+        Street = string.Empty;
+        City = string.Empty;
+        PostalCode = string.Empty;
+        Note = string.Empty;
+        HasLogo = false;
+        SaveState = "Not saved";
+        Regenerate();
+    }
+
+    private static string ValueOf(ClientRecord record, ContactPointKind kind, ContactPointSubtype subtype) =>
+        record.ContactPoints
+            .FirstOrDefault(point => point.Kind == kind && point.Subtype == subtype)
+            ?.ValueToEncode
+        ?? string.Empty;
+
+    private string SuggestedFileName(bool overridden)
     {
         var parts = new[] { Company, GivenName }
             .Where(part => !string.IsNullOrWhiteSpace(part))
             .Select(part => string.Concat(part.Trim().Split(Path.GetInvalidFileNameChars())));
 
-        var stem = string.Join('_', parts);
+        var stem = string.Join("_", parts);
 
         if (string.IsNullOrWhiteSpace(stem))
         {
             stem = "contact";
         }
 
-        return $"{stem}_QR_{PrintWidthMillimetres:0}mm.png";
+        // The minimum safe width travels with the file into the layout application, which is
+        // where the scaling mistake actually happens (PRD EC-28).
+        var safeWidth = lastAssessment is null || lastAssessment.Version is 0
+            ? string.Empty
+            : $"_min{lastAssessment.MinimumSafeWidthMillimetres:0}mm";
+
+        var unsafeSuffix = overridden ? "_UNSAFE" : string.Empty;
+
+        return $"{stem}_QR_{PrintWidthMillimetres:0}mm{safeWidth}{unsafeSuffix}.png";
     }
 }
