@@ -38,6 +38,8 @@ a defect, however convenient it is.
 | `src/ContactQR.App/` | The WPF application. Presentation only. |
 | `tests/ContactQR.Core.Tests/` | xUnit + FluentAssertions. See its `CLAUDE.md`. |
 | `tests/ContactQR.Rendering.Tests/` | Rendering, PNG metadata, capacity cross-verification. |
+| `installer/` | WiX 6 MSI — install, upgrade, uninstall. See its `CLAUDE.md`. |
+| `.github/workflows/ci.yml` | Build and test on every PR; MSI and release on merge to main. |
 | `BannedSymbols.txt` | The compile-time offline guarantee. |
 | `Directory.Build.props` | Nullable, warnings-as-errors, analyzers, the RS0030 escalation. |
 
@@ -48,12 +50,37 @@ without the target framework change making it obvious in review. Keep it that wa
 
 ```bash
 dotnet build          # must be warning-free; warnings are errors
-dotnet test           # 222 tests, all must pass
+dotnet test           # 244 tests, all must pass
 dotnet run --project src/ContactQR.App    # launch the Editor
 ```
 
 .NET 10 SDK. The solution file is `ContactQR.slnx`, the newer XML format — `dotnet build`
 finds it automatically, but `-p ContactQR.sln` will not work.
+
+## Versioning and releases
+
+**`<Version>` in `Directory.Build.props` is the single source of truth.** It sets the assembly
+version, the MSI `ProductVersion` shown in Programs and Features, and the release tag. Nothing
+else declares a version, so those three cannot drift apart.
+
+To cut a release: bump `<Version>`, open a PR, merge it. On merge to `main` the CI `release`
+job builds the MSI and publishes a GitHub release tagged `v{version}` with the MSI attached.
+
+**A merge that does not bump the version is normal and does not fail.** Most merges are not
+releases. The release job checks whether the tag already exists and skips if it does, rather
+than erroring or republishing over an artefact someone may already have downloaded.
+
+Follow semver: patch for fixes, minor for features, major when a change breaks an operator's
+existing library or exported files.
+
+## Branch protection
+
+`main` is protected. Changes arrive through a pull request, the `build-and-test` check must
+pass, and force pushes and deletions are blocked. Admin enforcement is deliberately off, so
+the repository owner can still push directly when they need to — everyone else cannot.
+
+This means CI is not advisory. It is the gate, and the offline guarantee is one of the things
+it gates.
 
 ## Conventions
 

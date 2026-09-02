@@ -12,6 +12,20 @@ dotnet build installer/ContactQR.Installer.wixproj -c Release
 element; building the wixproj against a stale or missing publish silently ships the wrong
 payload.
 
+## Version
+
+The MSI version comes from `<Version>` in the repository root `Directory.Build.props`, passed
+through as the `ProductVersion` preprocessor variable. Do not hardcode a version here — the
+number in Programs and Features, the assembly version and the release tag must stay the same
+number, and one source of truth is how that is guaranteed.
+
+`UpgradeCode` is fixed forever at `6f2a1c94-3d7e-4b16-9f8a-1c0d5e7b2a43`. **Never change it.**
+It is what tells Windows that a new MSI is an upgrade of the installed product rather than a
+different product, and changing it would leave every operator with two copies installed.
+
+Bumping `<Version>` and merging to `main` publishes a release automatically — see the root
+`CLAUDE.md`.
+
 ## Decisions worth knowing
 
 - **No in-application update check, by design.** PRD FR-8.2 bans it — an updater is a network

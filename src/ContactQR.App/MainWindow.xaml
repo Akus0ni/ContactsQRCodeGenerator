@@ -5,6 +5,7 @@
         xmlns:conv="clr-namespace:ContactQR.App.Converters"
         xmlns:views="clr-namespace:ContactQR.App.Views"
         Title="ContactQR"
+        Icon="Assets/appicon.ico"
         Height="820" Width="1400"
         MinHeight="720" MinWidth="1100"
         Background="{StaticResource SurfaceWindow}"
