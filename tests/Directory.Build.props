@@ -1,0 +1,16 @@
+<Project>
+
+  <!-- Inherit everything from the repository root, then relax what only makes sense there. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!--
+      Test methods are not public API and their names already state intent. Requiring an XML
+      doc comment on each one would add ceremony without adding information, and would make a
+      failing test report no more legible than it already is.
+    -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

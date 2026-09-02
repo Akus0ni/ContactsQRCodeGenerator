@@ -1,0 +1,26 @@
+; Offline guarantee — PRD FR-8.1, FR-8.2, FR-8.3.
+;
+; ContactQR makes zero outbound network connections. Every symbol below is banned at
+; compile time so that the guarantee is enforced by the build rather than by reviewer
+; vigilance. RS0030 is escalated to an error in Directory.Build.props.
+;
+; If you are here because the build failed: the fix is not to remove the ban. The whole
+; product is the promise that client contact data never leaves the operator's machine.
+;
+; Format: T:FullTypeName;Message   N:Namespace;Message   M:Method;Message
+
+N:System.Net.Sockets;Network access is banned. ContactQR never opens a socket (PRD FR-8.1).
+N:System.Net.Http;Network access is banned. ContactQR has no HTTP client (PRD FR-8.1).
+N:System.Net.NetworkInformation;Network probing is banned. The app must behave identically with adapters disabled (PRD FR-8.5).
+N:System.Net.Mail;Sending mail is a network operation and is banned (PRD FR-8.1).
+N:System.Net.WebSockets;Network access is banned (PRD FR-8.1).
+
+T:System.Net.WebClient;Network access is banned. ContactQR never fetches anything (PRD FR-8.1).
+T:System.Net.WebRequest;Network access is banned (PRD FR-8.1).
+T:System.Net.HttpWebRequest;Network access is banned (PRD FR-8.1).
+T:System.Net.Dns;DNS resolution is a network operation and is banned (PRD FR-8.1).
+T:System.Net.ServicePointManager;Network configuration implies network use and is banned (PRD FR-8.1).
+
+; Telemetry and update checks are the most likely accidental violation — they are the
+; default posture of most desktop frameworks and installers (PRD FR-8.2).
+T:System.Diagnostics.Tracing.EventSource;Telemetry is banned. No usage data leaves the machine (PRD FR-8.2).
