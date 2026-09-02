@@ -298,14 +298,14 @@ Against three reference payloads:
 
 | Payload | Contents | Size |
 |---|---|---|
-| **Minimal** | Name, company, one mobile | ~122 B |
+| **Minimal** | Name, company, one mobile | **131 B** (measured) |
 | **Typical** | + job title, work phone, email, website | ~250 B |
 | **Full** | + postal address, note, second phone, social URLs | ~400–450 B |
 
 **Three conclusions the operator needs, and no existing tool provides:**
 
 1. **The logo is the most expensive single decision on the card — more expensive than any field.** Removing it roughly doubles the available bytes at every size. When a code is over budget, "drop the logo" is almost always the cheapest fix in design terms and the largest in byte terms.
-2. **At 22mm without a logo, a Typical payload is Marginal and a Full payload fails.** Name, company, and one phone number is what a visiting-card-sized QR comfortably carries. This is a real constraint on the client conversation, not a software limitation to engineer around.
+2. **At 22mm, even a Minimal payload is only Marginal — and that is with no logo.** Measured rather than estimated: the minimal vCard is 131 bytes, which needs version 8 at ECC M, giving 57 modules including the quiet zone and 0.386 mm per module at 22mm. It reaches Safe at about 22.8mm. A Typical payload needs roughly 30mm and a Full payload fails outright. **A 22mm QR is not a comfortable size for a business vCard at all**, which is a real constraint on the client conversation rather than a software limitation to engineer around.
 3. **A logo'd QR wants ~30mm and a Minimal-to-Typical payload.** Below that it is a layout problem, and the honest answer to the client is "the logo costs you the address," not a code that fails after printing.
 
 The operator must be shown this trade-off live, priced, before export — not discover it from a client three weeks later.
