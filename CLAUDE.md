@@ -68,8 +68,13 @@ To cut a release: bump `<Version>`, open a PR, merge it. On merge to `main` the 
 job builds the MSI and publishes a GitHub release tagged `v{version}` with the MSI attached.
 
 **A merge that does not bump the version is normal and does not fail.** Most merges are not
-releases. The release job checks whether the tag already exists and skips if it does, rather
-than erroring or republishing over an artefact someone may already have downloaded.
+releases. A small `version-check` job reads `<Version>`, asks whether `v{version}` is already
+released, and gates the `release` job on the answer — so an unchanged version skips the whole
+job rather than erroring, or republishing over an artefact someone may already have downloaded.
+
+The check is a separate job on purpose. As steps inside `release` it still started a Windows
+runner and installed the SDK before no-opping into a green tick that published nothing; as a
+gate, the common case costs nothing and reads as what it is.
 
 Follow semver: patch for fixes, minor for features, major when a change breaks an operator's
 existing library or exported files.
