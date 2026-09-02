@@ -48,7 +48,7 @@ without the target framework change making it obvious in review. Keep it that wa
 
 ```bash
 dotnet build          # must be warning-free; warnings are errors
-dotnet test           # 217 tests, all must pass
+dotnet test           # 222 tests, all must pass
 dotnet run --project src/ContactQR.App    # launch the Editor
 ```
 

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:ContactQR.App.ViewModels"
         xmlns:conv="clr-namespace:ContactQR.App.Converters"
+        xmlns:views="clr-namespace:ContactQR.App.Views"
         Title="ContactQR"
         Height="820" Width="1400"
         MinHeight="720" MinWidth="1100"
@@ -12,11 +13,13 @@
         TextOptions.TextFormattingMode="Ideal">
 
     <Window.DataContext>
-        <vm:EditorViewModel />
+        <vm:ShellViewModel />
     </Window.DataContext>
 
     <Window.Resources>
         <conv:BrushKeyConverter x:Key="BrushKey" />
+        <conv:BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:BooleanToVisibilityConverter x:Key="InverseBool" Invert="True" />
     </Window.Resources>
 
     <Grid>
@@ -30,20 +33,50 @@
         <Border Grid.Row="0" Background="{StaticResource SurfacePanel}"
                 BorderBrush="{StaticResource BorderHairline}" BorderThickness="0,0,0,1">
             <Grid Margin="16,0">
-                <TextBlock VerticalAlignment="Center"
-                           FontFamily="{StaticResource DisplayFont}"
-                           FontSize="{StaticResource TypeTitle}"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimary}"
-                           Text="ContactQR" />
-                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
-                           Style="{StaticResource MonoText}"
-                           Text="vCard 3.0 · offline" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource GhostButton}"
+                            Content="&#x2039; Library"
+                            Command="{Binding BackToLibraryCommand}"
+                            Visibility="{Binding IsEditorVisible, Converter={StaticResource BoolToVis}}"
+                            Margin="0,0,12,0" />
+                    <TextBlock VerticalAlignment="Center"
+                               FontFamily="{StaticResource DisplayFont}"
+                               FontSize="{StaticResource TypeTitle}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimary}"
+                               Text="ContactQR" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource MonoText}"
+                               Text="{Binding Editor.SaveState}"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding IsEditorVisible, Converter={StaticResource BoolToVis}}"
+                               Margin="0,0,12,0" />
+                    <Button Style="{StaticResource GhostButton}"
+                            Content="Save to library"
+                            Command="{Binding Editor.SaveClientCommand}"
+                            Visibility="{Binding IsEditorVisible, Converter={StaticResource BoolToVis}}"
+                            Margin="0,0,12,0" />
+                    <TextBlock Style="{StaticResource MonoText}"
+                               VerticalAlignment="Center"
+                               Text="vCard 3.0 · offline" />
+                </StackPanel>
             </Grid>
         </Border>
 
+        <views:LibraryView Grid.Row="1"
+                           DataContext="{Binding Library}"
+                           Visibility="{Binding DataContext.IsEditorVisible,
+                                        RelativeSource={RelativeSource AncestorType=Window},
+                                        Converter={StaticResource InverseBool}}" />
+
         <!-- Three panes -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1"
+              DataContext="{Binding Editor}"
+              Visibility="{Binding DataContext.IsEditorVisible,
+                           RelativeSource={RelativeSource AncestorType=Window},
+                           Converter={StaticResource BoolToVis}}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="340" />
                 <ColumnDefinition Width="*" MinWidth="480" />
@@ -290,7 +323,7 @@
                 </StackPanel>
                 <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
                            Style="{StaticResource MonoText}"
-                           Text="{Binding PayloadReadout}" />
+                           Text="{Binding Editor.PayloadReadout}" />
             </Grid>
         </Border>
     </Grid>

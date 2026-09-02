@@ -1,0 +1,87 @@
+<Window x:Class="ContactQR.App.Views.UnsafeExportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export a code that will probably fail?"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{StaticResource SurfacePanel}"
+        UseLayoutRounding="True">
+
+    <!--
+        DESIGN.md section 6.4. Deliberately plain: no icon, no illustration.
+
+        Three frictions are load-bearing and must not be "improved" away. The confirm button is
+        not default-focused, Enter does not activate it, and its label says what it does rather
+        than "Continue". FR-4.5 and metric M7 both depend on this gate staying believed, and a
+        gate dismissible by muscle memory is equivalent to no gate at all.
+    -->
+    <StackPanel Margin="24">
+
+        <TextBlock Text="Export a code that will probably fail?"
+                   FontFamily="{StaticResource BodyFont}"
+                   FontSize="{StaticResource TypeTitle}"
+                   FontWeight="SemiBold"
+                   Foreground="{StaticResource TextPrimary}"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,16" />
+
+        <!-- The specific numbers, not a generic warning. -->
+        <TextBlock x:Name="Explanation"
+                   Style="{StaticResource BodyText}"
+                   Foreground="{StaticResource TextSecondary}"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,16" />
+
+        <Border Background="{StaticResource VerdictFailWash}"
+                CornerRadius="{StaticResource RadiusControl}"
+                Padding="12"
+                Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="If you continue"
+                           Style="{StaticResource FieldLabel}"
+                           Foreground="{StaticResource VerdictFailText}" />
+                <TextBlock x:Name="Consequences"
+                           Style="{StaticResource BodyText}"
+                           Foreground="{StaticResource TextSecondary}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- The acknowledgement is a full sentence, never pre-checked, never remembered. -->
+        <CheckBox x:Name="Acknowledgement"
+                  Checked="OnAcknowledgementChanged"
+                  Unchecked="OnAcknowledgementChanged"
+                  Foreground="{StaticResource TextPrimary}"
+                  FontFamily="{StaticResource BodyFont}"
+                  FontSize="{StaticResource TypeBody}"
+                  Padding="8,0,0,0"
+                  MinHeight="40"
+                  VerticalContentAlignment="Center"
+                  Margin="0,0,0,20">
+            <TextBlock Text="I understand this code is likely to fail when printed at this size."
+                       TextWrapping="Wrap" />
+        </CheckBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="CancelButton"
+                    Style="{StaticResource GhostButton}"
+                    Content="Cancel"
+                    IsCancel="True"
+                    MinWidth="100" MinHeight="40"
+                    Click="OnCancel"
+                    Margin="0,0,8,0" />
+
+            <Button x:Name="ConfirmButton"
+                    Style="{StaticResource PrimaryButton}"
+                    Background="{StaticResource VerdictFailFill}"
+                    Foreground="{StaticResource TextPrimary}"
+                    Content="Export unsafe code"
+                    IsEnabled="False"
+                    IsDefault="False"
+                    MinWidth="160" MinHeight="40"
+                    Click="OnConfirm" />
+        </StackPanel>
+    </StackPanel>
+</Window>

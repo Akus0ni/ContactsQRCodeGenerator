@@ -8,9 +8,13 @@ screen, it lives in `ContactQR.Core` or `ContactQR.Rendering`.
 |---|---|
 | `Theme/Tokens.xaml` | Colours, type and spacing from `DESIGN.md` §3. |
 | `Theme/Controls.xaml` | Control styles from `DESIGN.md` §7. |
-| `MainWindow.xaml` | The Editor: form / canvas / scannability rail (`DESIGN.md` §6.1). |
-| `ViewModels/EditorViewModel.cs` | Live preview, debounce, budget, remedies, export. |
-| `Converters/BrushKeyConverter.cs` | Resolves a token name to the brush that token names. |
+| `MainWindow.xaml` | Shell: header, status bar, and both primary views sharing one grid cell. |
+| `Views/LibraryView.xaml` | The Library — search, list, open, duplicate, delete (`DESIGN.md` §6.2). |
+| `Views/UnsafeExportDialog.xaml` | The FR-4.5 hard gate (`DESIGN.md` §6.4). |
+| `ViewModels/ShellViewModel.cs` | Owns the library connection and moves between views. |
+| `ViewModels/LibraryViewModel.cs` | Search, list, open, duplicate, delete. |
+| `ViewModels/EditorViewModel.cs` | Live preview, debounce, budget, remedies, save, export. |
+| `Converters/` | Token-name to brush, and an invertible boolean to visibility. |
 
 ## Layout rules that carry meaning
 
@@ -41,8 +45,25 @@ screen, it lives in `ContactQR.Core` or `ContactQR.Rendering`.
 - The view model calls `Regenerate()` in its constructor. Without it the panel opens blank and
   says nothing about what is missing, which contradicts P1.
 
+## The export gate
+
+`ExportPngCommand` enforces two gates that are not the same thing:
+
+- **The module-size gate is overridable.** A `WillFail` verdict routes through
+  `UnsafeExportDialog`, which requires a ticked acknowledgement, writes `_UNSAFE` into the
+  filename, and records `UnsafeOverride = true` in the export log (FR-4.5).
+- **A failed self-test is not overridable at all.** It means we drew something we cannot
+  verify, which is never a judgement call to hand the operator. There is deliberately no path
+  past it.
+- **`ExceedsCapacity` is also not overridable** — there is no code to export, only a payload
+  that will not encode.
+
+Three frictions in the dialog are load-bearing and must not be "improved" away: the confirm
+button is not default-focused, `Enter` does not activate it, and its label says
+`Export unsafe code` rather than `Continue`. FR-4.5 and metric M7 both depend on this gate
+staying believed, and a gate dismissible by muscle memory is equivalent to no gate.
+
 ## Not built yet
 
-Library browse screen, export dialog with DPI and quiet-zone controls, unsafe-override
-dialog, logo file picking, colour pickers, print test sheet, payload inspector. The export
-path currently goes straight to a save dialog at 300 dpi.
+Export dialog with DPI and quiet-zone controls, logo file picking, colour pickers, print test
+sheet, payload inspector, export-log view. Export goes straight to a save dialog at 300 dpi.
